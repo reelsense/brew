@@ -164,7 +164,7 @@ Open \fIformula\fR in the editor\.
 .
 .TP
 \fBfetch\fR [\fB\-\-force\fR] [\fB\-v\fR] [\fB\-\-devel\fR|\fB\-\-HEAD\fR] [\fB\-\-deps\fR] [\fB\-\-build\-from\-source\fR|\fB\-\-force\-bottle\fR] \fIformulae\fR
-Download the source packages for the given \fIformulae\fR\. For tarballs, also print SHA\-1 and SHA\-256 checksums\.
+Download the source packages for the given \fIformulae\fR\. For tarballs, also print SHA\-256 checksums\.
 .
 .IP
 If \fB\-\-HEAD\fR or \fB\-\-devel\fR is passed, fetch that version instead of the stable version\.
@@ -286,24 +286,24 @@ If \fB\-\-force\fR is passed, Homebrew will allow keg\-only formulae to be linke
 .
 .TP
 \fBlinkapps\fR [\fB\-\-local\fR] [\fIformulae\fR]
-Find installed formulae that have compiled \fB\.app\fR\-style "application" packages for OS X, and symlink those apps into \fB/Applications\fR, allowing for easier access\.
+Find installed formulae that provide \fB\.app\fR\-style OS X apps and symlink them into \fB/Applications\fR, allowing for easier access\.
 .
 .IP
-If no \fIformulae\fR are provided, all of them will have their \.apps symlinked\.
+If no \fIformulae\fR are provided, all of them will have their apps symlinked\.
 .
 .IP
-If provided, \fB\-\-local\fR will move them into the user\'s \fB~/Applications\fR directory instead of the system directory\. It may need to be created, first\.
+If provided, \fB\-\-local\fR will symlink them into the user\'s \fB~/Applications\fR directory instead of the system directory\.
 .
 .TP
-\fBls\fR, \fBlist\fR [\fB\-\-full\-name\fR]
+\fBlist\fR, \fBls\fR [\fB\-\-full\-name\fR]
 List all installed formulae\. If \fB\-\-full\-name\fR is passed, print formulae with full\-qualified names\.
 .
 .TP
-\fBls\fR, \fBlist\fR \fB\-\-unbrewed\fR
+\fBlist\fR, \fBls\fR \fB\-\-unbrewed\fR
 List all files in the Homebrew prefix not installed by Homebrew\.
 .
 .TP
-\fBls\fR, \fBlist\fR [\fB\-\-versions\fR [\fB\-\-multiple\fR]] [\fB\-\-pinned\fR] [\fIformulae\fR]
+\fBlist\fR, \fBls\fR [\fB\-\-versions\fR [\fB\-\-multiple\fR]] [\fB\-\-pinned\fR] [\fIformulae\fR]
 List the installed files for \fIformulae\fR\. Combined with \fB\-\-verbose\fR, recursively list the contents of all subdirectories in each \fIformula\fR\'s keg\.
 .
 .IP
@@ -317,18 +317,18 @@ If \fB\-\-pinned\fR is passed, show the versions of pinned formulae, or only the
 Show the git log for the given formulae\. Options that \fBgit\-log\fR(1) recognizes can be passed before the formula list\.
 .
 .TP
-\fBmissing\fR [\fIformulae\fR]
-Check the given \fIformulae\fR for missing dependencies\.
-.
-.IP
-If no \fIformulae\fR are given, check all installed brews\.
-.
-.TP
 \fBmigrate\fR [\fB\-\-force\fR] \fIformulae\fR
 Migrate renamed packages to new name, where \fIformulae\fR are old names of packages\.
 .
 .IP
 If \fB\-\-force\fR is passed, then treat installed \fIformulae\fR and passed \fIformulae\fR like if they are from same taps and migrate them anyway\.
+.
+.TP
+\fBmissing\fR [\fIformulae\fR]
+Check the given \fIformulae\fR for missing dependencies\.
+.
+.IP
+If no \fIformulae\fR are given, check all installed brews\.
 .
 .TP
 \fBoptions\fR [\fB\-\-compact\fR] (\fB\-\-all\fR|\fB\-\-installed\fR|\fIformulae\fR)
@@ -365,7 +365,7 @@ Pin the specified \fIformulae\fR, preventing them from being upgraded when issui
 .
 .TP
 \fBprune\fR [\fB\-\-dry\-run\fR]
-Remove dead symlinks from the Homebrew prefix\. This is generally not needed, but can be useful when doing DIY installations\.
+Remove dead symlinks from the Homebrew prefix\. This is generally not needed, but can be useful when doing DIY installations\. Also remove broken app symlinks from \fB/Applications\fR and \fB~/Applications\fR that were previously created by \fBbrew linkapps\fR\.
 .
 .IP
 If \fB\-\-dry\-run\fR or \fB\-n\fR is passed, show what would be removed, but do not actually remove anything\.
@@ -373,13 +373,6 @@ If \fB\-\-dry\-run\fR or \fB\-n\fR is passed, show what would be removed, but do
 .TP
 \fBreinstall\fR \fIformula\fR
 Uninstall then install \fIformula\fR
-.
-.TP
-\fBrm\fR, \fBremove\fR, \fBuninstall\fR [\fB\-\-force\fR] \fIformula\fR
-Uninstall \fIformula\fR\.
-.
-.IP
-If \fB\-\-force\fR is passed, and there are multiple versions of \fIformula\fR installed, delete all installed versions\.
 .
 .TP
 \fBsearch\fR, \fB\-S\fR
@@ -416,7 +409,10 @@ With \fIURL\fR unspecified, taps a formula repository from GitHub using HTTPS\. 
 With \fIURL\fR specified, taps a formula repository from anywhere, using any transport protocol that \fBgit\fR handles\. The one\-argument form of \fBtap\fR simplifies but also limits\. This two\-argument command makes no assumptions, so taps can be cloned from places other than GitHub and using protocols other than HTTPS, e\.g\., SSH, GIT, HTTP, FTP(S), RSYNC\.
 .
 .IP
-By default, the repository is cloned as a shallow copy (\fB\-\-depth=1\fR), but if \fB\-\-full\fR is passed, a full clone will be used\.
+By default, the repository is cloned as a shallow copy (\fB\-\-depth=1\fR), but if \fB\-\-full\fR is passed, a full clone will be used\. To convert a shallow copy to a full copy, you can retap passing \fB\-\-full\fR without first untapping\.
+.
+.IP
+\fBtap\fR is re\-runnable and exits successfully if there\'s nothing to do\. However, retapping with a different \fIURL\fR will cause an exception, so first \fBuntap\fR if you need to modify the \fIURL\fR\.
 .
 .TP
 \fBtap\fR \fB\-\-repair\fR
@@ -466,6 +462,13 @@ If \fB\-\-debug\fR is passed and the test fails, an interactive debugger will be
 Example: \fBbrew install jruby && brew test jruby\fR
 .
 .TP
+\fBuninstall\fR, \fBrm\fR, \fBremove\fR [\fB\-\-force\fR] \fIformula\fR
+Uninstall \fIformula\fR\.
+.
+.IP
+If \fB\-\-force\fR is passed, and there are multiple versions of \fIformula\fR installed, delete all installed versions\.
+.
+.TP
 \fBunlink\fR [\fB\-\-dry\-run\fR] \fIformula\fR
 Remove symlinks for \fIformula\fR from the Homebrew prefix\. This can be useful for temporarily disabling a formula: \fBbrew unlink foo && commands && brew link foo\fR\.
 .
@@ -473,11 +476,17 @@ Remove symlinks for \fIformula\fR from the Homebrew prefix\. This can be useful 
 If \fB\-\-dry\-run\fR or \fB\-n\fR is passed, Homebrew will list all files which would be unlinked, but will not actually unlink or delete any files\.
 .
 .TP
-\fBunlinkapps\fR [\fB\-\-local\fR] [\fIformulae\fR]
-Removes links created by \fBbrew linkapps\fR\.
+\fBunlinkapps\fR [\fB\-\-local\fR] [\fB\-\-dry\-run\fR] [\fIformulae\fR]
+Remove symlinks created by \fBbrew linkapps\fR from \fB/Applications\fR\.
 .
 .IP
-If no \fIformulae\fR are provided, all linked app will be removed\.
+If no \fIformulae\fR are provided, all linked apps will be removed\.
+.
+.IP
+If provided, \fB\-\-local\fR will remove symlinks from the user\'s \fB~/Applications\fR directory instead of the system directory\.
+.
+.IP
+If \fB\-\-dry\-run\fR or \fB\-n\fR is passed, Homebrew will list all symlinks which would be removed, but will not actually delete any files\.
 .
 .TP
 \fBunpack\fR [\fB\-\-git\fR|\fB\-\-patch\fR] [\fB\-\-destdir=\fR\fIpath\fR] \fIformulae\fR

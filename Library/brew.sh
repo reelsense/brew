@@ -58,13 +58,10 @@ then
 fi
 
 HOMEBREW_SYSTEM="$(uname -s)"
-if [[ "$HOMEBREW_SYSTEM" = "Darwin" ]]
-then
-  HOMEBREW_OSX="1"
-elif [[ "$HOMEBREW_SYSTEM" = "Linux" ]]
-then
-  HOMEBREW_LINUX="1"
-fi
+case "$HOMEBREW_SYSTEM" in
+  Darwin) HOMEBREW_OSX="1";;
+  Linux) HOMEBREW_LINUX="1";;
+esac
 
 if [[ -z "$HOMEBREW_RUBY_PATH" ]]
 then
@@ -77,9 +74,9 @@ then
 fi
 
 HOMEBREW_CURL="/usr/bin/curl"
-HOMEBREW_PROCESSOR="$(uname -p)"
 if [[ -n "$HOMEBREW_OSX" ]]
 then
+  HOMEBREW_PROCESSOR="$(uname -p)"
   HOMEBREW_PRODUCT="Homebrew"
   HOMEBREW_SYSTEM="Macintosh"
   # This is i386 even on x86_64 machines
@@ -87,19 +84,20 @@ then
   HOMEBREW_OSX_VERSION="$(/usr/bin/sw_vers -productVersion)"
   HOMEBREW_OS_VERSION="Mac OS X $HOMEBREW_OSX_VERSION"
 
-  HOMEBREW_OSX_VERSION_NUMERIC="$(printf "%02d%02d%02d" $(echo "${HOMEBREW_OSX_VERSION//./ }"))"
+  printf -v HOMEBREW_OSX_VERSION_NUMERIC "%02d%02d%02d" ${HOMEBREW_OSX_VERSION//./ }
   if [[ "$HOMEBREW_OSX_VERSION_NUMERIC" -lt "100900" &&
         -x "$HOMEBREW_PREFIX/opt/curl/bin/curl" ]]
   then
     HOMEBREW_CURL="$HOMEBREW_PREFIX/opt/curl/bin/curl"
   fi
 else
+  HOMEBREW_PROCESSOR="$(uname -m)"
   HOMEBREW_PRODUCT="${HOMEBREW_SYSTEM}brew"
   [[ -n "$HOMEBREW_LINUX" ]] && HOMEBREW_OS_VERSION="$(lsb_release -sd 2>/dev/null)"
-  HOMEBREW_OS_VERSION="${HOMEBREW_PRODUCT:=$(uname -r)}"
+  : "${HOMEBREW_OS_VERSION:=$(uname -r)}"
 fi
 HOMEBREW_USER_AGENT="$HOMEBREW_PRODUCT/$HOMEBREW_VERSION ($HOMEBREW_SYSTEM; $HOMEBREW_PROCESSOR $HOMEBREW_OS_VERSION)"
-HOMEBREW_CURL_VERSION="$("$HOMEBREW_CURL" --version 2>/dev/null | head -n1 | awk '{print $1"/"$2}')"
+HOMEBREW_CURL_VERSION="$("$HOMEBREW_CURL" --version 2>/dev/null | head -n1 | /usr/bin/awk '{print $1"/"$2}')"
 HOMEBREW_USER_AGENT_CURL="$HOMEBREW_USER_AGENT $HOMEBREW_CURL_VERSION"
 
 # Declared in bin/brew
@@ -178,9 +176,9 @@ case "$HOMEBREW_COMMAND" in
   --config)    HOMEBREW_COMMAND="config";;
 esac
 
-if [[ -f "$HOMEBREW_LIBRARY/Homebrew/cmd/$HOMEBREW_COMMAND.sh" ]] ; then
+if [[ -f "$HOMEBREW_LIBRARY/Homebrew/cmd/$HOMEBREW_COMMAND.sh" ]]; then
   HOMEBREW_BASH_COMMAND="$HOMEBREW_LIBRARY/Homebrew/cmd/$HOMEBREW_COMMAND.sh"
-elif [[ -n "$HOMEBREW_DEVELOPER" && -f "$HOMEBREW_LIBRARY/Homebrew/dev-cmd/$HOMEBREW_COMMAND.sh" ]] ; then
+elif [[ -n "$HOMEBREW_DEVELOPER" && -f "$HOMEBREW_LIBRARY/Homebrew/dev-cmd/$HOMEBREW_COMMAND.sh" ]]; then
   HOMEBREW_BASH_COMMAND="$HOMEBREW_LIBRARY/Homebrew/dev-cmd/$HOMEBREW_COMMAND.sh"
 fi
 
@@ -205,7 +203,7 @@ then
   HOMEBREW_ANALYTICS_USER_UUID_FILE="$HOME/.homebrew_analytics_user_uuid"
   if [[ -r "$HOMEBREW_ANALYTICS_USER_UUID_FILE" ]]
   then
-    HOMEBREW_ANALYTICS_USER_UUID="$(cat "$HOMEBREW_ANALYTICS_USER_UUID_FILE")"
+    HOMEBREW_ANALYTICS_USER_UUID="$(<"$HOMEBREW_ANALYTICS_USER_UUID_FILE")"
   else
     HOMEBREW_ANALYTICS_USER_UUID="$(uuidgen)"
     echo "$HOMEBREW_ANALYTICS_USER_UUID" > "$HOMEBREW_ANALYTICS_USER_UUID_FILE"
@@ -218,7 +216,7 @@ then
   # information.
   # https://developers.google.com/analytics/devguides/collection/protocol/v1/devguide#screenView
   # https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
-  curl https://www.google-analytics.com/collect -d v=1 \
+  "$HOMEBREW_CURL" https://www.google-analytics.com/collect -d v=1 \
     --silent --max-time 3 --output /dev/null \
     --user-agent "$HOMEBREW_USER_AGENT_CURL" \
     -d tid="$HOMEBREW_ANALYTICS_ID" \
@@ -228,8 +226,22 @@ then
     -d av="$HOMEBREW_VERSION" \
     -d t=screenview \
     -d cd="$HOMEBREW_COMMAND" \
-    &
+    &> /dev/null \
+    & disown
 fi
+
+update-preinstall() {
+  [[ -n "$HOMEBREW_AUTO_UPDATE" ]] || return
+  [[ -z "$HOMEBREW_NO_AUTO_UPDATE" ]] || return
+
+  if [[ "$HOMEBREW_COMMAND" = "install" || "$HOMEBREW_COMMAND" = "upgrade" ]]
+  then
+    # Hide shellcheck complaint:
+    # shellcheck source=/dev/null
+    source "$HOMEBREW_LIBRARY/Homebrew/cmd/update.sh"
+    homebrew-update --preinstall
+  fi
+}
 
 if [[ -n "$HOMEBREW_BASH_COMMAND" ]]
 then
@@ -241,9 +253,9 @@ then
   # Hide shellcheck complaint:
   # shellcheck source=/dev/null
   source "$HOMEBREW_BASH_COMMAND"
-  { "homebrew-$HOMEBREW_COMMAND" "$@"; exit $?; }
+  { update-preinstall; "homebrew-$HOMEBREW_COMMAND" "$@"; exit $?; }
 else
   # Unshift command back into argument list (unless argument list was empty).
   [[ "$HOMEBREW_ARG_COUNT" -gt 0 ]] && set -- "$HOMEBREW_COMMAND" "$@"
-  exec "$HOMEBREW_RUBY_PATH" -W0 "$HOMEBREW_LIBRARY/brew.rb" "$@"
+  { update-preinstall; exec "$HOMEBREW_RUBY_PATH" -W0 "$HOMEBREW_LIBRARY/brew.rb" "$@"; }
 fi

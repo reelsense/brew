@@ -22,10 +22,9 @@ module FileUtils
     else
       Process.gid
     end
-    # Make OS X 10.6.7 (ruby-1.8.7-p174) and earlier happy.
-    group_id = group_id.to_s
     begin
-      chown(nil, group_id, tmp)
+      # group_id.to_s makes OS X 10.6.7 (ruby-1.8.7-p174) and earlier happy.
+      chown(nil, group_id.to_s, tmp)
     rescue Errno::EPERM
       opoo "Failed setting group \"#{Etc.getgrgid(group_id).name}\" on #{tmp}"
     end
@@ -132,5 +131,16 @@ module FileUtils
     system "xcodebuild", *args
   ensure
     ENV.update(removed)
+  end
+end
+
+# Shim File.write for Ruby 1.8.7, where it's absent
+unless File.respond_to?(:write)
+  class File
+    def self.write(filename, contents)
+      File.open(filename, 'w') do |file|
+        file.write contents
+      end
+    end
   end
 end

@@ -1,3 +1,9 @@
+#:  * `update` [`--rebase`]:
+#:    Fetch the newest version of Homebrew and all formulae from GitHub using
+#:     `git`(1).
+#:
+#:    If `--rebase` is specified then `git pull --rebase` is used.
+
 brew() {
   "$HOMEBREW_BREW_FILE" "$@"
 }
@@ -207,7 +213,14 @@ pull() {
 
   trap '' SIGINT
 
-  pop_stash_message
+  if [[ -n "$HOMEBREW_DEVELOPER" ]] &&
+     [[ "$INITIAL_BRANCH" != "$UPSTREAM_BRANCH" && -n "$INITIAL_BRANCH" ]]
+  then
+    git checkout "${QUIET_ARGS[@]}" "$INITIAL_BRANCH"
+    pop_stash
+  else
+    pop_stash_message
+  fi
 
   trap - SIGINT
 }
@@ -220,12 +233,12 @@ homebrew-update() {
   for option in "$@"
   do
     case "$option" in
-      # TODO: - `brew update --help` should display update subcommand help
-      --help) brew --help; exit $? ;;
+      --help) brew help update; exit $? ;;
       --verbose) HOMEBREW_VERBOSE=1 ;;
       --debug) HOMEBREW_DEBUG=1;;
       --rebase) HOMEBREW_REBASE=1 ;;
       --simulate-from-current-branch) HOMEBREW_SIMULATE_FROM_CURRENT_BRANCH=1 ;;
+      --preinstall) HOMEBREW_UPDATE_PREINSTALL=1 ;;
       --*) ;;
       -*)
         [[ "$option" = *v* ]] && HOMEBREW_VERBOSE=1;
@@ -304,18 +317,28 @@ EOS
         UPSTREAM_BRANCH_LOCAL_SHA="$(git rev-parse "refs/remotes/origin/$UPSTREAM_BRANCH")"
         # Only try to `git fetch` when the upstream branch is at a different SHA
         # (so the API does not return 304: unmodified).
-        UPSTREAM_SHA_HTTP_CODE="$(curl --silent '--max-time' 3 \
+        UPSTREAM_SHA_HTTP_CODE="$("$HOMEBREW_CURL" --silent '--max-time' 3 \
            --output /dev/null --write-out "%{http_code}" \
            --user-agent "$HOMEBREW_USER_AGENT_CURL" \
            --header "Accept: application/vnd.github.chitauri-preview+sha" \
            --header "If-None-Match: \"$UPSTREAM_BRANCH_LOCAL_SHA\"" \
            "https://api.github.com/repos/$UPSTREAM_REPOSITORY/commits/$UPSTREAM_BRANCH")"
         [[ "$UPSTREAM_SHA_HTTP_CODE" = "304" ]] && exit
+      elif [[ -n "$HOMEBREW_UPDATE_PREINSTALL" ]]
+      then
+        # Don't try to do a `git fetch` that may take longer than expected.
+        exit
       fi
 
-      git fetch --force "${QUIET_ARGS[@]}" origin \
-        "refs/heads/$UPSTREAM_BRANCH:refs/remotes/origin/$UPSTREAM_BRANCH" || \
-          odie "Fetching $DIR failed!"
+      if [[ -n "$HOMEBREW_UPDATE_PREINSTALL" ]]
+      then
+        git fetch --force "${QUIET_ARGS[@]}" origin \
+          "refs/heads/$UPSTREAM_BRANCH:refs/remotes/origin/$UPSTREAM_BRANCH" 2>/dev/null
+      else
+        git fetch --force "${QUIET_ARGS[@]}" origin \
+          "refs/heads/$UPSTREAM_BRANCH:refs/remotes/origin/$UPSTREAM_BRANCH" || \
+            odie "Fetching $DIR failed!"
+      fi
     ) &
   done
 

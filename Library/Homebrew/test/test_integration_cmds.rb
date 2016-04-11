@@ -434,7 +434,7 @@ class IntegrationCommandTests < Homebrew::TestCase
 
     source_dir = HOMEBREW_CELLAR/"testball/0.1/TestBall.app"
     source_dir.mkpath
-    assert_match "Linking #{source_dir} to",
+    assert_match "Linking: #{source_dir}",
       cmd("linkapps", "--local", {"HOME" => home})
   ensure
     formula_file.unlink
@@ -459,7 +459,7 @@ class IntegrationCommandTests < Homebrew::TestCase
 
     FileUtils.ln_s source_app, "#{apps_dir}/TestBall.app"
 
-    assert_match "Unlinking #{apps_dir}/TestBall.app",
+    assert_match "Unlinking: #{apps_dir}/TestBall.app",
       cmd("unlinkapps", "--local", {"HOME" => home})
   ensure
     formula_file.unlink
@@ -694,7 +694,9 @@ class IntegrationCommandTests < Homebrew::TestCase
     assert (share/"notpruneable").directory?
     refute (share/"pruneable_symlink").symlink?
 
-    assert_equal "Nothing pruned",
+    # Inexact match because only if ~/Applications exists, will this output one
+    # more line with contents `No apps unlinked from /Users/<user/Applications`.
+    assert_match "Nothing pruned\nNo apps unlinked from /Applications",
       cmd("prune", "--verbose")
   ensure
     share.rmtree

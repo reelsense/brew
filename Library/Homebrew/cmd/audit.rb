@@ -1,3 +1,18 @@
+#:  * `audit` [`--strict`] [`--online`] [<formulae>]:
+#:    Check <formulae> for Homebrew coding style violations. This should be
+#:    run before submitting a new formula.
+#:
+#:    If no <formulae> are provided, all of them are checked.
+#:
+#:    If `--strict` is passed, additional checks are run. This should be used
+#:    when creating for new formulae.
+#:
+#:    If `--online` is passed, additional slower checks that require a network
+#:    connection are run. This should be used when creating for new formulae.
+#:
+#:    `audit` exits with a non-zero status if any errors are found. This is useful,
+#:    for instance, for implementing pre-commit hooks.
+
 require "formula"
 require "formula_versions"
 require "utils"
@@ -187,6 +202,7 @@ class FormulaAuditor
       [/^  (go_)?resource/,                "resource"],
       [/^  def install/,                   "install method"],
       [/^  def caveats/,                   "caveats method"],
+      [/^  (plist_options|def plist)/,     "plist block"],
       [/^  test do/,                       "test block"],
     ]
 
@@ -635,6 +651,10 @@ class FormulaAuditor
 
     if text =~ /Formula\.factory\(/
       problem "\"Formula.factory(name)\" is deprecated in favor of \"Formula[name]\""
+    end
+
+    if text =~ /def plist/ && text !~ /plist_options/
+      problem "Please set plist_options when using a formula-defined plist."
     end
 
     if text =~ /system "npm", "install"/ && text !~ %r[opt_libexec\}/npm/bin] && formula.name !~ /^kibana(\d{2})?$/

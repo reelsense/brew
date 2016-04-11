@@ -154,7 +154,7 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
 
   * `fetch` [`--force`] [`-v`] [`--devel`|`--HEAD`] [`--deps`] [`--build-from-source`|`--force-bottle`] <formulae>:
     Download the source packages for the given <formulae>.
-    For tarballs, also print SHA-1 and SHA-256 checksums.
+    For tarballs, also print SHA-256 checksums.
 
     If `--HEAD` or `--devel` is passed, fetch that version instead of the
     stable version.
@@ -267,23 +267,22 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
     If `--force` is passed, Homebrew will allow keg-only formulae to be linked.
 
   * `linkapps` [`--local`] [<formulae>]:
-    Find installed formulae that have compiled `.app`-style "application"
-    packages for OS X, and symlink those apps into `/Applications`, allowing
-    for easier access.
+    Find installed formulae that provide `.app`-style OS X apps and symlink them
+    into `/Applications`, allowing for easier access.
 
-    If no <formulae> are provided, all of them will have their .apps symlinked.
+    If no <formulae> are provided, all of them will have their apps symlinked.
 
-    If provided, `--local` will move them into the user's `~/Applications`
-    directory instead of the system directory. It may need to be created, first.
+    If provided, `--local` will symlink them into the user's `~/Applications`
+    directory instead of the system directory.
 
-  * `ls`, `list` [`--full-name`]:
+  * `list`, `ls` [`--full-name`]:
     List all installed formulae. If `--full-name` is passed, print formulae with
     full-qualified names.
 
-  * `ls`, `list` `--unbrewed`:
+  * `list`, `ls` `--unbrewed`:
     List all files in the Homebrew prefix not installed by Homebrew.
 
-  * `ls`, `list` [`--versions` [`--multiple`]] [`--pinned`] [<formulae>]:
+  * `list`, `ls` [`--versions` [`--multiple`]] [`--pinned`] [<formulae>]:
     List the installed files for <formulae>. Combined with `--verbose`, recursively
     list the contents of all subdirectories in each <formula>'s keg.
 
@@ -299,17 +298,17 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
     Show the git log for the given formulae. Options that `git-log`(1)
     recognizes can be passed before the formula list.
 
-  * `missing` [<formulae>]:
-    Check the given <formulae> for missing dependencies.
-
-    If no <formulae> are given, check all installed brews.
-
   * `migrate` [`--force`] <formulae>:
     Migrate renamed packages to new name, where <formulae> are old names of
     packages.
 
     If `--force` is passed, then treat installed <formulae> and passed <formulae>
     like if they are from same taps and migrate them anyway.
+
+  * `missing` [<formulae>]:
+    Check the given <formulae> for missing dependencies.
+
+    If no <formulae> are given, check all installed brews.
 
   * `options` [`--compact`] (`--all`|`--installed`|<formulae>):
     Display install options specific to <formulae>.
@@ -341,19 +340,15 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
 
   * `prune` [`--dry-run`]:
     Remove dead symlinks from the Homebrew prefix. This is generally not
-    needed, but can be useful when doing DIY installations.
+    needed, but can be useful when doing DIY installations. Also remove broken
+    app symlinks from `/Applications` and `~/Applications` that were previously
+    created by `brew linkapps`.
 
     If `--dry-run` or `-n` is passed, show what would be removed, but do not
     actually remove anything.
 
   * `reinstall` <formula>:
     Uninstall then install <formula>
-
-  * `rm`, `remove`, `uninstall` [`--force`] <formula>:
-    Uninstall <formula>.
-
-    If `--force` is passed, and there are multiple versions of <formula>
-    installed, delete all installed versions.
 
   * `search`, `-S`:
     Display all locally available formulae for brewing (including tapped ones).
@@ -394,7 +389,12 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
     using protocols other than HTTPS, e.g., SSH, GIT, HTTP, FTP(S), RSYNC.
 
     By default, the repository is cloned as a shallow copy (`--depth=1`), but
-    if `--full` is passed, a full clone will be used.
+    if `--full` is passed, a full clone will be used. To convert a shallow copy
+    to a full copy, you can retap passing `--full` without first untapping.
+
+    `tap` is re-runnable and exits successfully if there's nothing to do.
+    However, retapping with a different <URL> will cause an exception, so first
+    `untap` if you need to modify the <URL>.
 
   * `tap` `--repair`:
     Migrate tapped formulae from symlink-based to directory-based structure.
@@ -438,6 +438,12 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
 
     Example: `brew install jruby && brew test jruby`
 
+  * `uninstall`, `rm`, `remove` [`--force`] <formula>:
+    Uninstall <formula>.
+
+    If `--force` is passed, and there are multiple versions of <formula>
+    installed, delete all installed versions.
+
   * `unlink` [`--dry-run`] <formula>:
     Remove symlinks for <formula> from the Homebrew prefix. This can be useful
     for temporarily disabling a formula:
@@ -446,10 +452,16 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
     If `--dry-run` or `-n` is passed, Homebrew will list all files which would
     be unlinked, but will not actually unlink or delete any files.
 
-  * `unlinkapps` [`--local`] [<formulae>]:
-    Removes links created by `brew linkapps`.
+  * `unlinkapps` [`--local`] [`--dry-run`] [<formulae>]:
+    Remove symlinks created by `brew linkapps` from `/Applications`.
 
-    If no <formulae> are provided, all linked app will be removed.
+    If no <formulae> are provided, all linked apps will be removed.
+
+    If provided, `--local` will remove symlinks from the user's `~/Applications`
+    directory instead of the system directory.
+
+    If `--dry-run` or `-n` is passed, Homebrew will list all symlinks which
+    would be removed, but will not actually delete any files.
 
   * `unpack` [`--git`|`--patch`] [`--destdir=`<path>] <formulae>:
     Unpack the source files for <formulae> into subdirectories of the current
