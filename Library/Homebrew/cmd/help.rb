@@ -41,6 +41,7 @@ module Homebrew
   end
 
   def help_for_command(cmd)
+    cmd = HOMEBREW_INTERNAL_COMMAND_ALIASES.fetch(cmd, cmd)
     cmd_path = if File.exist?(HOMEBREW_LIBRARY_PATH/"cmd/#{cmd}.sh")
       HOMEBREW_LIBRARY_PATH/"cmd/#{cmd}.sh"
     elsif ARGV.homebrew_developer? && File.exist?(HOMEBREW_LIBRARY_PATH/"dev-cmd/#{cmd}.sh")
@@ -55,7 +56,10 @@ module Homebrew
     cmd_path.read.
       split("\n").
       grep(/^#:/).
-      map { |line| line.slice(2..-1).delete("`").sub(/^  \* /, "brew ") }.
-      join("\n")
+      map do |line|
+        line.slice(2..-1).sub(/^  \* /, "#{Tty.highlight}brew#{Tty.reset} ").
+        gsub(/`(.*?)`/, "#{Tty.highlight}\\1#{Tty.reset}").
+        gsub(/<(.*?)>/, "#{Tty.em}\\1#{Tty.reset}")
+      end.join("\n")
   end
 end
