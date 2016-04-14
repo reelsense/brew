@@ -15,7 +15,7 @@ require "set"
 
 class Cmd
   attr_reader :config, :prefix, :cellar, :opt, :tmpdir, :sysroot, :deps
-  attr_reader :archflags, :optflags, :keg_regex
+  attr_reader :archflags, :optflags, :keg_regex, :formula_prefix
 
   def initialize(arg0, args)
     @arg0 = arg0
@@ -29,6 +29,7 @@ class Cmd
     @archflags = ENV.fetch("HOMEBREW_ARCHFLAGS") { "" }.split(" ")
     @optflags = ENV.fetch("HOMEBREW_OPTFLAGS") { "" }.split(" ")
     @deps = Set.new(ENV.fetch("HOMEBREW_DEPENDENCIES") { "" }.split(","))
+    @formula_prefix = ENV["HOMEBREW_FORMULA_PREFIX"]
     # matches opt or cellar prefix and formula name
     @keg_regex = %r[(#{Regexp.escape(opt)}|#{Regexp.escape(cellar)})/([\w\-_\+]+)]
   end
@@ -205,9 +206,12 @@ class Cmd
     # but is currently opt-in.
     return keep_orig?(path) unless ENV["HOMEBREW_EXPERIMENTAL_FILTER_FLAGS_ON_DEPS"]
 
+    # Allow references to self
+    if formula_prefix && path.start_with?("#{formula_prefix}/")
+      true
     # first two paths: reject references to Cellar or opt paths
     # for unspecified dependencies
-    if path.start_with?(cellar) || path.start_with?(opt)
+    elsif path.start_with?(cellar) || path.start_with?(opt)
       dep = path[keg_regex, 2]
       dep && @deps.include?(dep)
     elsif path.start_with?(prefix)
