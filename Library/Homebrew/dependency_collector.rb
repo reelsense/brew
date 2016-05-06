@@ -111,12 +111,15 @@ class DependencyCollector
     when :rbenv      then RbenvRequirement.new(tags)
     when :ruby       then RubyRequirement.new(tags)
     when :osxfuse    then OsxfuseRequirement.new(tags)
+    when :perl       then PerlRequirement.new(tags)
     when :tuntap     then TuntapRequirement.new(tags)
     when :ant        then ant_dep(spec, tags)
     when :apr        then AprRequirement.new(tags)
     when :emacs      then EmacsRequirement.new(tags)
     # Tiger's ld is too old to properly link some software
     when :ld64       then LD64Dependency.new if MacOS.version < :leopard
+    # Tiger doesn't ship expat in /usr/lib
+    when :expat      then Dependency.new("expat", tag) if MacOS.version < :leopard
     when :python2
       PythonRequirement.new(tags)
     else

@@ -65,7 +65,8 @@ class Tty
     end
 
     def truncate(str)
-      str.to_s[0, width - 4]
+      w = width
+      w > 10 ? str.to_s[0, w - 4] : str
     end
 
     private
@@ -172,8 +173,7 @@ def interactive_shell(f = nil)
   if $?.success?
     return
   elsif $?.exited?
-    puts "Aborting due to non-zero exit status"
-    exit $?.exitstatus
+    raise "Aborted due to non-zero exit status (#{$?.exitstatus})"
   else
     raise $?.inspect
   end
@@ -277,6 +277,39 @@ module Homebrew
       EOS
     end
   end
+
+  # Hash of Module => Set(method_names)
+  @@injected_dump_stat_modules = {}
+
+  def inject_dump_stats!(the_module, pattern)
+    @@injected_dump_stat_modules[the_module] ||= []
+    injected_methods = @@injected_dump_stat_modules[the_module]
+    the_module.module_eval do
+      instance_methods.grep(pattern).each do |name|
+        next if injected_methods.include? name
+        method = instance_method(name)
+        define_method(name) do |*args, &block|
+          begin
+            time = Time.now
+            method.bind(self).call(*args, &block)
+          ensure
+            $times[name] ||= 0
+            $times[name] += Time.now - time
+          end
+        end
+      end
+    end
+
+    if $times.nil?
+      $times = {}
+      at_exit do
+        col_width = [$times.keys.map(&:size).max + 2, 15].max
+        $times.sort_by { |_k, v| v }.each do |method, time|
+          puts format("%-*s %0.4f sec", col_width, "#{method}:", time)
+        end
+      end
+    end
+  end
 end
 
 def with_system_path
@@ -367,7 +400,7 @@ def which(cmd, path = ENV["PATH"])
       pcmd = File.expand_path(cmd, p)
     rescue ArgumentError
       # File.expand_path will raise an ArgumentError if the path is malformed.
-      # See https://github.com/Homebrew/homebrew/issues/32789
+      # See https://github.com/Homebrew/legacy-homebrew/issues/32789
       next
     end
     return Pathname.new(pcmd) if File.file?(pcmd) && File.executable?(pcmd)
@@ -381,7 +414,7 @@ def which_all(cmd, path = ENV["PATH"])
       pcmd = File.expand_path(cmd, p)
     rescue ArgumentError
       # File.expand_path will raise an ArgumentError if the path is malformed.
-      # See https://github.com/Homebrew/homebrew/issues/32789
+      # See https://github.com/Homebrew/legacy-homebrew/issues/32789
       next
     end
     Pathname.new(pcmd) if File.file?(pcmd) && File.executable?(pcmd)

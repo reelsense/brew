@@ -1,4 +1,5 @@
 require "utils/json"
+require "rexml/document"
 
 class AbstractDownloadStrategy
   include FileUtils
@@ -17,7 +18,9 @@ class AbstractDownloadStrategy
   def fetch
   end
 
-  # Unpack {#cached_location} into the current working directory.
+  # Unpack {#cached_location} into the current working directory, and possibly
+  # chdir into the newly-unpacked directory.
+  # Unlike {Resource#stage}, this does not take a block.
   def stage
   end
 
@@ -190,7 +193,14 @@ class AbstractFileDownloadStrategy < AbstractDownloadStrategy
       with_system_path { buffered_write("bunzip2") }
     when :gzip, :bzip2, :compress, :tar
       # Assume these are also tarred
-      tar_flags = (ARGV.verbose? && ENV["TRAVIS"].nil?) ? "xvf" : "xf"
+      tar_flags = (ARGV.verbose? && ENV["TRAVIS"].nil?) ? "xv" : "x"
+      # Older versions of tar require an explicit format flag
+      if cached_location.compression_type == :gzip
+        tar_flags << "z"
+      elsif cached_location.compression_type == :bzip2
+        tar_flags << "j"
+      end
+      tar_flags << "f"
       with_system_path { safe_system "tar", tar_flags, cached_location }
       chdir
     when :xz
@@ -485,6 +495,11 @@ class SubversionDownloadStrategy < VCSDownloadStrategy
     quiet_safe_system "svn", "export", "--force", cached_location, Dir.pwd
   end
 
+  def source_modified_time
+    xml = REXML::Document.new(Utils.popen_read("svn", "info", "--xml", cached_location.to_s))
+    Time.parse REXML::XPath.first(xml, "//date/text()").to_s
+  end
+
   private
 
   def repo_url
@@ -752,6 +767,10 @@ class MercurialDownloadStrategy < VCSDownloadStrategy
     end
   end
 
+  def source_modified_time
+    Time.parse Utils.popen_read("hg", "tip", "--template", "{date|isodate}", "-R", cached_location.to_s)
+  end
+
   private
 
   def cache_tag
@@ -782,6 +801,10 @@ class BazaarDownloadStrategy < VCSDownloadStrategy
     # See https://bugs.launchpad.net/bzr/+bug/897511
     cp_r File.join(cached_location, "."), Dir.pwd
     rm_r ".bzr"
+  end
+
+  def source_modified_time
+    Time.parse Utils.popen_read("bzr", "log", "-l", "1", "--timezone=utc", cached_location.to_s)[/^timestamp: (.+)$/, 1]
   end
 
   private
@@ -815,6 +838,10 @@ class FossilDownloadStrategy < VCSDownloadStrategy
     args = [fossilpath, "open", cached_location]
     args << @ref if @ref_type && @ref
     safe_system(*args)
+  end
+
+  def source_modified_time
+    Time.parse Utils.popen_read("fossil", "info", "tip", "-R", cached_location.to_s)[/^uuid: +\h+ (.+)$/, 1]
   end
 
   private

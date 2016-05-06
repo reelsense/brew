@@ -48,7 +48,8 @@ module OS
         # Homebrew GCCs most frequently; much faster to check this before xcrun
         elsif (path = HOMEBREW_PREFIX/"bin/#{tool}").executable?
           path
-        else
+        # xcrun was introduced in Xcode 3 on Leopard
+        elsif MacOS.version > :tiger
           path = Utils.popen_read("/usr/bin/xcrun", "-no-cache", "-find", tool).chomp
           Pathname.new(path) if File.executable?(path)
         end
@@ -96,7 +97,7 @@ module OS
     #      named after a newer OS version than the running OS. The
     #      MACOSX_DEPLOYMENT_TARGET must be set to the OS for which you're
     #      actually building (usually the running OS version).
-    #      https://github.com/Homebrew/homebrew/pull/50355
+    #      https://github.com/Homebrew/legacy-homebrew/pull/50355
     #      https://developer.apple.com/library/ios/documentation/DeveloperTools/Conceptual/WhatsNewXcode/Articles/Introduction.html#//apple_ref/doc/uid/TP40004626
     #      Section "About SDKs and Simulator"
     #   b) For Xcode < 7, proceed as if the SDK for the running OS version had
@@ -130,7 +131,9 @@ module OS
 
     def default_compiler
       case default_cc
-      when /^gcc-4.0/ then :gcc_4_0
+      # if GCC 4.2 is installed, e.g. via Tigerbrew, prefer it
+      # over the system's GCC 4.0
+      when /^gcc-4.0/ then gcc_42_build_version ? :gcc : :gcc_4_0
       when /^gcc/ then :gcc
       when /^llvm/ then :llvm
       when "clang" then :clang
@@ -202,9 +205,9 @@ module OS
     end
 
     # See these issues for some history:
-    # https://github.com/Homebrew/homebrew/issues/13
-    # https://github.com/Homebrew/homebrew/issues/41
-    # https://github.com/Homebrew/homebrew/issues/48
+    # https://github.com/Homebrew/legacy-homebrew/issues/13
+    # https://github.com/Homebrew/legacy-homebrew/issues/41
+    # https://github.com/Homebrew/legacy-homebrew/issues/48
     def macports_or_fink
       paths = []
 
@@ -235,7 +238,11 @@ module OS
     end
 
     def prefer_64_bit?
-      Hardware::CPU.is_64_bit? && version > :leopard
+      if ENV["HOMEBREW_PREFER_64_BIT"] && version == :leopard
+        Hardware::CPU.is_64_bit?
+      else
+        Hardware::CPU.is_64_bit? && version > :leopard
+      end
     end
 
     def preferred_arch
@@ -247,6 +254,7 @@ module OS
     end
 
     STANDARD_COMPILERS = {
+      "2.0"   => { :gcc_40_build => 4061 },
       "2.5"   => { :gcc_40_build => 5370 },
       "3.1.4" => { :gcc_40_build => 5493, :gcc_42_build => 5577 },
       "3.2.6" => { :gcc_40_build => 5494, :gcc_42_build => 5666, :llvm_build => 2335, :clang => "1.7", :clang_build => 77 },
@@ -288,6 +296,7 @@ module OS
       "7.2"   => { :clang => "7.0", :clang_build => 700 },
       "7.2.1" => { :clang => "7.0", :clang_build => 700 },
       "7.3"   => { :clang => "7.3", :clang_build => 703 },
+      "7.3.1" => { :clang => "7.3", :clang_build => 703 },
     }
 
     def compilers_standard?
@@ -297,9 +306,9 @@ module OS
     rescue IndexError
       onoe <<-EOS.undent
         Homebrew doesn't know what compiler versions ship with your version
-        of Xcode (#{Xcode.version}). Please `brew update` and if that doesn't help, file
-        an issue with the output of `brew --config`:
-          https://github.com/Homebrew/homebrew/issues
+        of Xcode (#{Xcode.version}). Please `brew update` and if that doesn't
+        help, file an issue with the output of `brew --config`:
+          https://github.com/Homebrew/brew/issues
 
         Note that we only track stable, released versions of Xcode.
 

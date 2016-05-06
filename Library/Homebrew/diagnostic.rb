@@ -85,22 +85,7 @@ module Homebrew
       end
       ############# END HELPERS
 
-      def inject_dump_stats!
-        self.extend Module.new {
-          def send(method, *)
-            time = Time.now
-            super
-          ensure
-            $times[method] = Time.now - time
-          end
-        }
-        $times = {}
-        at_exit do
-          puts $times.sort_by { |_k, v| v }.map { |k, v| "#{k}: #{v}" }
-        end
-      end
-
-      # See https://github.com/Homebrew/homebrew/pull/9986
+      # See https://github.com/Homebrew/legacy-homebrew/pull/9986
       def check_path_for_trailing_slashes
         all_paths = ENV["PATH"].split(File::PATH_SEPARATOR)
         bad_paths = all_paths.select { |p| p[-1..-1] == "/" }
@@ -431,7 +416,7 @@ module Homebrew
       end
 
       def check_for_osx_gcc_installer
-        return unless MacOS.version < "10.7" || MacOS::Xcode.version > "4.1"
+        return unless MacOS.version < "10.7" || ((MacOS::Xcode.version || "0") > "4.1")
         return unless MacOS.clang_version == "2.1"
 
         fix_advice = if MacOS.version >= :mavericks
@@ -454,7 +439,7 @@ module Homebrew
         # if the uninstaller script isn't there, it's a good guess neither are
         # any troublesome leftover Xcode files
         uninstaller = Pathname.new("/Developer/Library/uninstall-developer-folder")
-        return unless MacOS::Xcode.version >= "4.3" && uninstaller.exist?
+        return unless ((MacOS::Xcode.version || "0") >= "4.3") && uninstaller.exist?
 
         <<-EOS.undent
           You have leftover files from an older version of Xcode.
@@ -1098,22 +1083,6 @@ module Homebrew
               https://github.com/Homebrew/brew.git
           EOS
         end
-      end
-
-      def check_for_autoconf
-        return unless MacOS::Xcode.installed?
-        return unless MacOS::Xcode.provides_autotools?
-
-        autoconf = which("autoconf")
-        safe_autoconfs = %w[/usr/bin/autoconf /Developer/usr/bin/autoconf]
-        return if autoconf.nil? || safe_autoconfs.include?(autoconf.to_s)
-
-        <<-EOS.undent
-          An "autoconf" in your path blocks the Xcode-provided version at:
-            #{autoconf}
-
-          This custom autoconf may cause some Homebrew formulae to fail to compile.
-        EOS
       end
 
       def __check_linked_brew(f)

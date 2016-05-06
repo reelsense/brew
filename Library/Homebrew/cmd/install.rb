@@ -1,4 +1,4 @@
-#:  * `install` [`--debug`] [`--env=`<std>|<super>] [`--ignore-dependencies`] [`--only-dependencies`] [`--cc=`<compiler>] [`--build-from-source`|`--force-bottle`] [`--devel`|`--HEAD`] <formula>:
+#:  * `install` [`--debug`] [`--env=`<std>|<super>] [`--ignore-dependencies`] [`--only-dependencies`] [`--cc=`<compiler>] [`--build-from-source`|`--force-bottle`] [`--devel`|`--HEAD`] [`--keep-tmp`] <formula>:
 #:    Install <formula>.
 #:
 #:    <formula> is usually the name of the formula to install, but it can be specified
@@ -34,6 +34,9 @@
 #:
 #:    If `--HEAD` is passed, and <formula> defines it, install the HEAD version,
 #:    aka master, trunk, unstable.
+#:
+#:    If `--keep-tmp` is passed, the temporary files created for the test are
+#:    not deleted.
 #:
 #:    To install a newer version of HEAD use
 #:    `brew rm <foo> && brew install --HEAD <foo>`.
@@ -139,6 +142,11 @@ module Homebrew
       perform_preinstall_checks
 
       formulae.each { |f| install_formula(f) }
+    rescue FormulaClassUnavailableError => e
+      # Need to rescue before `FormulaUnavailableError` (superclass of this)
+      # is handled, as searching for a formula doesn't make sense here (the
+      # formula was found, but there's a problem with its implementation).
+      ofail e.message
     rescue FormulaUnavailableError => e
       if (blacklist = blacklisted?(e.name))
         ofail "#{e.message}\n#{blacklist}"

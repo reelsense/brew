@@ -15,11 +15,11 @@ module OS
         when "10.8"  then "5.1.1"
         when "10.9"  then "6.2"
         when "10.10" then "7.2.1"
-        when "10.11" then "7.3"
+        when "10.11" then "7.3.1"
         else
           # Default to newest known version of Xcode for unreleased OSX versions.
           if OS::Mac.prerelease?
-            "7.3"
+            "7.3.1"
           else
             raise "OS X '#{MacOS.version}' is invalid"
           end
@@ -81,10 +81,22 @@ module OS
 
         return nil if !MacOS::Xcode.installed? && !MacOS::CLT.installed?
 
-        %W[#{prefix}/usr/bin/xcodebuild #{which("xcodebuild")}].uniq.each do |path|
-          if File.file? path
-            Utils.popen_read(path, "-version") =~ /Xcode (\d(\.\d)*)/
-            return $1 if $1
+        %W[
+          #{prefix}/usr/bin/xcodebuild
+          #{which("xcodebuild")}
+        ].uniq.each do |xcodebuild_path|
+          if File.executable? xcodebuild_path
+            xcodebuild_output = Utils.popen_read(xcodebuild_path, "-version")
+            next unless $?.success?
+
+            xcode_version = xcodebuild_output[/Xcode (\d(\.\d)*)/, 1]
+            return xcode_version if xcode_version
+
+            # Xcode 2.x's xcodebuild has a different version string
+            case xcodebuild_output[/DevToolsCore-(\d+\.\d)/, 1]
+            when "515.0" then return "2.0"
+            when "798.0" then return "2.5"
+            end
           end
         end
 
@@ -96,7 +108,7 @@ module OS
         case MacOS.llvm_build_version.to_i
         when 1..2063 then "3.1.0"
         when 2064..2065 then "3.1.4"
-        when 2366..2325
+        when 2066..2325
           # we have no data for this range so we are guessing
           "3.2.0"
         when 2326
@@ -129,10 +141,6 @@ module OS
           else "7.3"
           end
         end
-      end
-
-      def provides_autotools?
-        version < "4.3"
       end
 
       def provides_gcc?
@@ -169,7 +177,7 @@ module OS
 
       def latest_version
         case MacOS.version
-        when "10.11" then "703.0.29"
+        when "10.11" then "703.0.31"
         when "10.10" then "700.1.81"
         when "10.9"  then "600.0.57"
         when "10.8"  then "503.0.40"
@@ -196,6 +204,10 @@ module OS
       end
 
       def detect_version
+        # CLT isn't a distinct entity pre-4.3, and pkgutil doesn't exist
+        # at all on Tiger, so just count it as installed if Xcode is installed
+        return MacOS::Xcode.version if MacOS::Xcode.installed? && MacOS::Xcode.version < "3.0"
+
         [MAVERICKS_PKG_ID, MAVERICKS_NEW_PKG_ID, STANDALONE_PKG_ID, FROM_XCODE_PKG_ID].find do |id|
           if MacOS.version >= :mavericks
             next unless File.exist?("#{MAVERICKS_PKG_PATH}/usr/bin/clang")

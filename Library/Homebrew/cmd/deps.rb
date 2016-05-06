@@ -1,7 +1,6 @@
-#:  * `deps` [`--1`] [`-n`] [`--union`] [`--tree`] [`--all`] [`--installed`] [`--skip-build`] [`--skip-optional`] <formulae>:
+#:  * `deps` [`--1`] [`-n`] [`--union`] [`--installed`] [`--include-build`] [`--include-optional`] [`--skip-recommended`] <formulae>:
 #:    Show dependencies for <formulae>. When given multiple formula arguments,
-#:    show the intersection of dependencies for <formulae>, except when passed
-#:    `--tree`, `--all`, or `--installed`.
+#:    show the intersection of dependencies for <formulae>.
 #:
 #:    If `--1` is passed, only show dependencies one level down, instead of
 #:    recursing.
@@ -11,15 +10,30 @@
 #:    If `--union` is passed, show the union of dependencies for <formulae>,
 #:    instead of the intersection.
 #:
-#:    If `--tree` is passed, show dependencies as a tree.
+#:    If `--installed` is passed, only list those dependencies that are
+#:    currently installed.
 #:
-#:    If `--all` is passed, show dependencies for all formulae.
+#:    By default, `deps` shows required and recommended dependencies for
+#:    <formulae>. To include the `:build` type dependencies, pass `--include-build`.
+#:    Similarly, pass `--include-optional` to include `:optional` dependencies.
+#:    To skip `:recommended` type dependencies, pass `--skip-recommended`.
 #:
-#:    If `--installed` is passed, show dependencies for all installed formulae.
+#:  * `deps` `--tree` [<filters>] (<formulae>|`--installed`):
+#:    Show dependencies as a tree. When given multiple formula arguments, output
+#:    individual trees for every formula.
 #:
-#:    By default, `deps` shows dependencies for <formulae>. To skip the `:build`
-#:    type dependencies, pass `--skip-build`. Similarly, pass `--skip-optional`
-#:    to skip `:optional` dependencies.
+#:    If `--installed` is passed, output a tree for every installed formula.
+#:
+#:    The <filters> placeholder is any combination of options `--include-build`,
+#:    `--include-optional`, and `--skip-recommended` as documented above.
+#:
+#:  * `deps` [<filters>] (`--installed`|`--all`):
+#:    Show dependencies for installed or all available formulae. Every line of
+#:    output starts with the formula name, followed by a colon and all direct
+#:    dependencies of that formula.
+#:
+#:    The <filters> placeholder is any combination of options `--include-build`,
+#:    `--include-optional`, and `--skip-recommended` as documented above.
 
 # encoding: UTF-8
 require "formula"
@@ -55,23 +69,33 @@ module Homebrew
   end
 
   def deps_for_formula(f, recursive = false)
+    includes = []
     ignores = []
-    ignores << "build?" if ARGV.include? "--skip-build"
-    ignores << "optional?" if ARGV.include? "--skip-optional"
+    if ARGV.include? "--include-build"
+      includes << "build?"
+    else
+      ignores << "build?"
+    end
+    if ARGV.include? "--include-optional"
+      includes << "optional?"
+    else
+      ignores << "optional?"
+    end
+    ignores << "recommended?" if ARGV.include? "--skip-recommended"
 
     if recursive
       deps = f.recursive_dependencies do |dependent, dep|
-        Dependency.prune if ignores.any? { |ignore| dep.send(ignore) } && !dependent.build.with?(dep)
+        Dependency.prune if ignores.any? { |ignore| dep.send(ignore) } && !includes.any? { |include| dep.send(include) } && !dependent.build.with?(dep)
       end
       reqs = f.recursive_requirements do |dependent, req|
-        Requirement.prune if ignores.any? { |ignore| req.send(ignore) } && !dependent.build.with?(req)
+        Requirement.prune if ignores.any? { |ignore| req.send(ignore) } && !includes.any? { |include| req.send(include) } && !dependent.build.with?(req)
       end
     else
       deps = f.deps.reject do |dep|
-        ignores.any? { |ignore| dep.send(ignore) }
+        ignores.any? { |ignore| dep.send(ignore) } && !includes.any? { |include| dep.send(include) }
       end
       reqs = f.requirements.reject do |req|
-        ignores.any? { |ignore| req.send(ignore) }
+        ignores.any? { |ignore| req.send(ignore) } && !includes.any? { |include| req.send(include) }
       end
     end
 

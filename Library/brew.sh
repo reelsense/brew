@@ -1,6 +1,6 @@
 HOMEBREW_VERSION="0.9.9"
 
-odie() {
+onoe() {
   if [[ -t 2 ]] # check whether stderr is a tty.
   then
     echo -ne "\033[4;31mError\033[0m: " >&2 # highlight Error with underline and red color
@@ -13,6 +13,10 @@ odie() {
   else
     echo "$*" >&2
   fi
+}
+
+odie() {
+  onoe "$@"
   exit 1
 }
 
@@ -70,6 +74,10 @@ then
     HOMEBREW_RUBY_PATH="/System/Library/Frameworks/Ruby.framework/Versions/Current/usr/bin/ruby"
   else
     HOMEBREW_RUBY_PATH="$(which ruby)"
+    if [[ -z "$HOMEBREW_RUBY_PATH" ]]
+    then
+      odie "No Ruby found, cannot proceed."
+    fi
   fi
 fi
 
@@ -186,7 +194,7 @@ fi
 if [[ "$(id -u)" = "0" && "$(/usr/bin/stat -f%u "$HOMEBREW_BREW_FILE")" != "0" ]]
 then
   case "$HOMEBREW_COMMAND" in
-    install|reinstall|postinstall|link|pin|update|upgrade|create|migrate|tap|tap-pin|switch)
+    analytics|install|reinstall|postinstall|link|pin|update|upgrade|create|migrate|tap|tap-pin|switch)
       odie <<EOS
 Cowardly refusing to 'sudo brew $HOMEBREW_COMMAND'
 You can use brew with sudo, but only if the brew executable is owned by root.

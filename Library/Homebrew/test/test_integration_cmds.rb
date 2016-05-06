@@ -130,8 +130,21 @@ class IntegrationCommandTests < Homebrew::TestCase
   end
 
   def test_help
-    assert_match "Example usage:",
-                 cmd("help")
+    assert_match "Example usage:\n",
+                 cmd_fail # Generic help (empty argument list).
+    assert_match "Unknown command: command-that-does-not-exist",
+                 cmd_fail("help", "command-that-does-not-exist")
+    assert_match(/^brew cat /,
+                 cmd_fail("cat")) # Missing formula argument triggers help.
+
+    assert_match "Example usage:\n",
+                 cmd("help") # Generic help.
+    assert_match(/^brew cat /,
+                 cmd("help", "cat")) # Internal command (documented, Ruby).
+    assert_match(/^brew update /,
+                 cmd("help", "update")) # Internal command (documented, Shell).
+    assert_match "Example usage:\n",
+                 cmd("help", "test-bot") # Internal command (undocumented).
   end
 
   def test_config
@@ -157,7 +170,7 @@ class IntegrationCommandTests < Homebrew::TestCase
       end
     EOS
     # `brew bottle` should not fail with dead symlink
-    # https://github.com/Homebrew/homebrew/issues/49007
+    # https://github.com/Homebrew/legacy-homebrew/issues/49007
     (HOMEBREW_CELLAR/"testball/0.1").cd do
       FileUtils.ln_s "not-exist", "symlink"
     end
@@ -196,7 +209,7 @@ class IntegrationCommandTests < Homebrew::TestCase
     alias_file.parent.mkpath
     FileUtils.ln_s formula_file, alias_file
     cmd("readall", "--aliases", "--syntax")
-    cmd("readall", "Homebrew/homebrew")
+    cmd("readall", "homebrew/core")
   ensure
     formula_file.unlink unless formula_file.nil?
     repo.alias_dir.rmtree
@@ -412,8 +425,8 @@ class IntegrationCommandTests < Homebrew::TestCase
     (HOMEBREW_CELLAR/"testball/0.0.1/foo").mkpath
 
     cmd("upgrade")
-    assert (HOMEBREW_CELLAR/"testball/0.1").directory?,
-      "The latest version directory should be created"
+    assert((HOMEBREW_CELLAR/"testball/0.1").directory?,
+      "The latest version directory should be created")
   ensure
     formula_file.unlink
     cmd("uninstall", "--force", testball)
@@ -483,13 +496,13 @@ class IntegrationCommandTests < Homebrew::TestCase
 
     cmd("pin", "testball")
     cmd("upgrade")
-    refute (HOMEBREW_CELLAR/"testball/0.1").directory?,
-      "The latest version directory should NOT be created"
+    refute((HOMEBREW_CELLAR/"testball/0.1").directory?,
+      "The latest version directory should NOT be created")
 
     cmd("unpin", "testball")
     cmd("upgrade")
-    assert (HOMEBREW_CELLAR/"testball/0.1").directory?,
-      "The latest version directory should be created"
+    assert((HOMEBREW_CELLAR/"testball/0.1").directory?,
+      "The latest version directory should be created")
   ensure
     formula_file.unlink
     cmd("uninstall", "--force", testball)
@@ -566,8 +579,8 @@ class IntegrationCommandTests < Homebrew::TestCase
     EOS
 
     cmd("fetch", "testball")
-    assert (HOMEBREW_CACHE/"testball-0.1.tbz").exist?,
-      "The tarball should have been cached"
+    assert((HOMEBREW_CACHE/"testball-0.1.tbz").exist?,
+      "The tarball should have been cached")
   ensure
     formula_file.unlink
     cmd("cleanup", "--force", "--prune=all")
@@ -690,9 +703,9 @@ class IntegrationCommandTests < Homebrew::TestCase
       cmd("prune", "--dry-run")
     assert_match "Pruned 1 symbolic links and 3 directories",
       cmd("prune")
-    refute (share/"pruneable").directory?
-    assert (share/"notpruneable").directory?
-    refute (share/"pruneable_symlink").symlink?
+    refute((share/"pruneable").directory?)
+    assert((share/"notpruneable").directory?)
+    refute((share/"pruneable_symlink").symlink?)
 
     # Inexact match because only if ~/Applications exists, will this output one
     # more line with contents `No apps unlinked from /Users/<user/Applications`.

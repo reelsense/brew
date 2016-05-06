@@ -30,7 +30,7 @@ begin
   trap("INT", std_trap) # restore default CTRL-C handler
 
   empty_argv = ARGV.empty?
-  help_flag_list = %w[-h --help --usage -? help]
+  help_flag_list = %w[-h --help --usage -?]
   help_flag = false
   internal_cmd = true
   cmd = nil
@@ -38,7 +38,11 @@ begin
   ARGV.dup.each_with_index do |arg, i|
     if help_flag && cmd
       break
-    elsif help_flag_list.include? arg
+    elsif help_flag_list.include?(arg)
+      # Option-style help: Both `--help <cmd>` and `<cmd> --help` are fine.
+      help_flag = true
+    elsif arg == "help" && !cmd
+      # Command-style help: `help <cmd>` is fine, but `<cmd> help` is not.
       help_flag = true
     elsif !cmd
       cmd = ARGV.delete_at(i)
@@ -68,29 +72,15 @@ begin
   #
   # It should never affect external commands so they can handle usage
   # arguments themselves.
+  if empty_argv || help_flag
+    require "cmd/help"
+    Homebrew.help cmd, :empty_argv => empty_argv
+    # `Homebrew.help` never returns, except for external/unknown commands.
+  end
 
-  if empty_argv
-    $stderr.puts ARGV.usage
-    exit 1
-  elsif help_flag
-    if cmd.nil?
-      puts ARGV.usage
-      exit 0
-    else
-      # Handle both internal ruby and shell commands
-      require "cmd/help"
-      help_text = Homebrew.help_for_command(cmd)
-      if help_text.nil?
-        # External command, let it handle help by itself
-      elsif help_text.empty?
-        opoo "No help available for '#{cmd}' command."
-        puts ARGV.usage
-        exit 0
-      else
-        puts help_text
-        exit 0
-      end
-    end
+  # Uninstall old brew-cask if it's still around; we just use the tap now.
+  if cmd == "cask" && (HOMEBREW_CELLAR/"brew-cask").exist?
+    system(HOMEBREW_BREW_FILE, "uninstall", "--force", "brew-cask")
   end
 
   if internal_cmd
@@ -120,7 +110,7 @@ begin
         tap_commands += %W[/usr/bin/sudo -u ##{brew_uid}]
       end
       tap_commands += %W[#{HOMEBREW_BREW_FILE} tap #{possible_tap}]
-      safe_system *tap_commands
+      safe_system(*tap_commands)
       exec HOMEBREW_BREW_FILE, cmd, *ARGV
     else
       onoe "Unknown command: #{cmd}"
@@ -128,13 +118,9 @@ begin
     end
   end
 
-rescue FormulaUnspecifiedError
-  abort "This command requires a formula argument"
-rescue KegUnspecifiedError
-  abort "This command requires a keg argument"
-rescue UsageError
-  onoe "Invalid usage"
-  abort ARGV.usage
+rescue UsageError => e
+  require "cmd/help"
+  Homebrew.help cmd, :usage_error => e.message
 rescue SystemExit => e
   onoe "Kernel.exit" if ARGV.verbose? && !e.success?
   $stderr.puts e.backtrace if ARGV.debug?
@@ -143,17 +129,17 @@ rescue Interrupt => e
   $stderr.puts # seemingly a newline is typical
   exit 130
 rescue BuildError => e
-  report_analytics_exception(e)
+  Utils::Analytics.report_exception(e)
   e.dump
   exit 1
 rescue RuntimeError, SystemCallError => e
-  report_analytics_exception(e)
+  Utils::Analytics.report_exception(e)
   raise if e.message.empty?
   onoe e
   $stderr.puts e.backtrace if ARGV.debug?
   exit 1
 rescue Exception => e
-  report_analytics_exception(e)
+  Utils::Analytics.report_exception(e)
   onoe e
   if internal_cmd
     $stderr.puts "#{Tty.white}Please report this bug:"

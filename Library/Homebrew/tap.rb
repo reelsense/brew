@@ -95,6 +95,11 @@ class Tap
     end
   end
 
+  # The default remote path to this {Tap}.
+  def default_remote
+    "https://github.com/#{user}/homebrew-#{repo}"
+  end
+
   # True if this {Tap} is a git repository.
   def git?
     (path/".git").exist?
@@ -185,10 +190,9 @@ class Tap
 
     full_clone = options.fetch(:full_clone, false)
     quiet = options.fetch(:quiet, false)
-    requested_remote = options[:clone_target] || "https://github.com/#{user}/homebrew-#{repo}"
+    requested_remote = options[:clone_target] || default_remote
 
     if installed?
-      raise TapRemoteMismatchError.new(name, @remote, requested_remote) unless remote == requested_remote
       raise TapAlreadyTappedError, name unless full_clone
       raise TapAlreadyUnshallowError, name unless shallow?
     end
@@ -197,6 +201,10 @@ class Tap
     Utils.ensure_git_installed!
 
     if installed?
+      if options[:clone_target] && requested_remote != remote
+        raise TapRemoteMismatchError.new(name, @remote, requested_remote)
+      end
+
       ohai "Unshallowing #{name}" unless quiet
       args = %W[fetch --unshallow]
       args << "-q" if quiet
@@ -290,7 +298,7 @@ class Tap
   # True if the {#remote} of {Tap} is customized.
   def custom_remote?
     return true unless remote
-    remote.casecmp("https://github.com/#{user}/homebrew-#{repo}") != 0
+    remote.casecmp(default_remote) != 0
   end
 
   # path to the directory of all {Formula} files for this {Tap}.
@@ -497,9 +505,13 @@ end
 # A specialized {Tap} class for the core formulae
 class CoreTap < Tap
   if OS.mac?
-    OFFICIAL_REMOTE = "https://github.com/Homebrew/homebrew-core"
+    def default_remote
+      "https://github.com/Homebrew/homebrew-core"
+    end
   else
-    OFFICIAL_REMOTE = "https://github.com/Linuxbrew/homebrew-core"
+    def default_remote
+      "https://github.com/Linuxbrew/homebrew-core"
+    end
   end
 
   # @private
@@ -516,11 +528,6 @@ class CoreTap < Tap
     args = ["tap", instance.name]
     args << "-q" if options.fetch(:quiet, true)
     safe_system HOMEBREW_BREW_FILE, *args
-  end
-
-  def install(options = {})
-    options[:clone_target] ||= OFFICIAL_REMOTE
-    super options
   end
 
   # @private
@@ -541,11 +548,6 @@ class CoreTap < Tap
   # @private
   def pinned?
     false
-  end
-
-  # @private
-  def custom_remote?
-    remote != OFFICIAL_REMOTE
   end
 
   # @private

@@ -1,6 +1,28 @@
-class UsageError < RuntimeError; end
-class FormulaUnspecifiedError < UsageError; end
-class KegUnspecifiedError < UsageError; end
+class UsageError < RuntimeError
+  attr_reader :reason
+
+  def initialize(reason = nil)
+    @reason = reason
+  end
+
+  def to_s
+    s = "Invalid usage"
+    s += ": #{reason}" if reason
+    s
+  end
+end
+
+class FormulaUnspecifiedError < UsageError
+  def initialize
+    super "This command requires a formula argument"
+  end
+end
+
+class KegUnspecifiedError < UsageError
+  def initialize
+    super "This command requires a keg argument"
+  end
+end
 
 class MultipleVersionsInstalledError < RuntimeError
   attr_reader :name
@@ -65,6 +87,43 @@ class TapFormulaUnavailableError < FormulaUnavailableError
     s = super
     s += "\nPlease tap it and then try again: brew tap #{tap}" unless tap.installed?
     s
+  end
+end
+
+class FormulaClassUnavailableError < FormulaUnavailableError
+  attr_reader :path
+  attr_reader :class_name
+  attr_reader :class_list
+
+  def initialize(name, path, class_name, class_list)
+    @path = path
+    @class_name = class_name
+    @class_list = class_list
+    super name
+  end
+
+  def to_s
+    s = super
+    s += "\nIn formula file: #{path}"
+    s += "\nExpected to find class #{class_name}, but #{class_list_s}."
+    s
+  end
+
+  private
+
+  def class_list_s
+    formula_class_list = class_list.select { |klass| klass < Formula }
+    if class_list.empty?
+      "found no classes"
+    elsif formula_class_list.empty?
+      "only found: #{format_list(class_list)} (not derived from Formula!)"
+    else
+      "only found: #{format_list(formula_class_list)}"
+    end
+  end
+
+  def format_list(class_list)
+    class_list.map { |klass| klass.name.split("::")[-1] }.join(", ")
   end
 end
 
@@ -398,11 +457,23 @@ end
 # the compilers available on the user's system
 class CompilerSelectionError < RuntimeError
   def initialize(formula)
-    super <<-EOS.undent
-      #{formula.full_name} cannot be built with any available compilers.
-      To install this formula, you may need to:
-        brew install gcc
-      EOS
+    if MacOS.version > :tiger
+      super <<-EOS.undent
+        #{formula.full_name} cannot be built with any available compilers.
+        To install this formula, you may need to:
+          brew install gcc
+        EOS
+    # Tiger doesn't ship with apple-gcc42, and this is required to build
+    # some software that doesn't build properly with FSF GCC.
+    else
+      super <<-EOS.undent
+        #{formula.full_name} cannot be built with any available compilers.
+        To install this formula, you may need to either:
+          brew install apple-gcc42
+        or:
+          brew install gcc
+        EOS
+    end
   end
 end
 

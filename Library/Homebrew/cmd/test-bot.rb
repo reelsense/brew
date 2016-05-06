@@ -11,7 +11,7 @@
 # --junit:         Generate a JUnit XML test results file.
 # --no-bottle:     Run brew install without --build-bottle.
 # --keep-old:      Run brew bottle --keep-old to build new bottles for a single platform.
-# --legacy         Build formula from legacy Homebrew/homebrew repo.
+# --legacy         Build formula from legacy Homebrew/legacy-homebrew repo.
 #                  (TODO remove it when it's not longer necessary)
 # --HEAD:          Run brew install with --HEAD.
 # --local:         Ask Homebrew to write verbose logs under ./logs/ and set HOME to ./home/.
@@ -21,6 +21,7 @@
 # --verbose:       Print test step output in realtime. Has the side effect of passing output
 #                  as raw bytes instead of re-encoding in UTF-8.
 # --fast:          Don't install any packages, but run e.g. audit anyway.
+# --keep-tmp:      Keep temporary files written by main installs and tests that are run.
 #
 # --ci-master:           Shortcut for Homebrew master branch CI options.
 # --ci-pr:               Shortcut for Homebrew pull request CI options.
@@ -246,6 +247,7 @@ module Homebrew
     def safe_formula_canonical_name(formula_name)
       Formulary.factory(formula_name).full_name
     rescue TapFormulaUnavailableError => e
+      raise if e.tap.installed?
       test "brew", "tap", e.tap.name
       retry unless steps.last.failed?
     rescue FormulaUnavailableError, TapFormulaAmbiguityError, TapFormulaWithOldnameAmbiguityError
@@ -334,7 +336,7 @@ module Homebrew
         @name = @hash
       # Handle a URL being passed on the command-line or through Jenkins/Travis
       # environment variables e.g.
-      # `brew test-bot https://github.com/Homebrew/homebrew/pull/44293`.
+      # `brew test-bot https://github.com/Homebrew/homebrew-core/pull/678`.
       elsif @url
         # TODO: in future Travis CI may need to also use `brew pull` to e.g. push
         # the right commit to BrewTestBot.
@@ -489,7 +491,7 @@ module Homebrew
       end
 
       installed = Utils.popen_read("brew", "list").split("\n")
-      dependencies = Utils.popen_read("brew", "deps", "--skip-optional", formula_name).split("\n")
+      dependencies = Utils.popen_read("brew", "deps", "--include-build", formula_name).split("\n")
 
       (installed & dependencies).each do |installed_dependency|
         installed_dependency_formula = Formulary.factory(installed_dependency)
@@ -504,17 +506,16 @@ module Homebrew
       unchanged_dependencies = dependencies - @formulae
       changed_dependences = dependencies - unchanged_dependencies
 
-      runtime_dependencies = Utils.popen_read("brew", "deps",
-                                              "--skip-build", "--skip-optional",
-                                              formula_name).split("\n")
+      runtime_dependencies = Utils.popen_read("brew", "deps", formula_name).split("\n")
       build_dependencies = dependencies - runtime_dependencies
       unchanged_build_dependencies = build_dependencies - @formulae
 
-      dependents = Utils.popen_read("brew", "uses", "--skip-build", "--skip-optional", formula_name).split("\n")
+      dependents = Utils.popen_read("brew", "uses", formula_name).split("\n")
       dependents -= @formulae
       dependents = dependents.map { |d| Formulary.factory(d) }
 
-      testable_dependents = dependents.select { |d| d.test_defined? && d.bottled? }
+      bottled_dependents = dependents.select { |d| d.bottled? }
+      testable_dependents = dependents.select { |d| d.bottled? && d.test_defined? }
 
       if (deps | reqs).any? { |d| d.name == "mercurial" && d.build? }
         run_as_not_developer { test "brew", "install", "mercurial" }
@@ -534,7 +535,12 @@ module Homebrew
       end
       test "brew", "fetch", "--retry", *fetch_args
       test "brew", "uninstall", "--force", formula_name if formula.installed?
-      install_args = ["--verbose"]
+
+      # shared_*_args are applied to both the main and --devel spec
+      shared_install_args = ["--verbose"]
+      shared_install_args << "--keep-tmp" if ARGV.keep_tmp?
+      # install_args is just for the main (stable, or devel if in a devel-only tap) spec
+      install_args = []
       install_args << "--build-bottle" if !ARGV.include?("--fast") && !ARGV.include?("--no-bottle") && !formula.bottle_disabled?
       install_args << "--HEAD" if ARGV.include? "--HEAD"
 
@@ -550,6 +556,7 @@ module Homebrew
         formula_bottled = formula.bottled?
       end
 
+      install_args.concat(shared_install_args)
       install_args << formula_name
       # Don't care about e.g. bottle failures for dependencies.
       install_passed = false
@@ -584,8 +591,10 @@ module Homebrew
             test "brew", "install", bottle_filename
           end
         end
-        test "brew", "test", "--verbose", formula_name if formula.test_defined?
-        testable_dependents.each do |dependent|
+        shared_test_args = ["--verbose"]
+        shared_test_args << "--keep-tmp" if ARGV.keep_tmp?
+        test "brew", "test", formula_name, *shared_test_args if formula.test_defined?
+        bottled_dependents.each do |dependent|
           unless dependent.installed?
             test "brew", "fetch", "--retry", dependent.name
             next if steps.last.failed?
@@ -599,7 +608,10 @@ module Homebrew
             end
           end
           if dependent.installed?
-            test "brew", "test", "--verbose", dependent.name
+            test "brew", "linkage", "--test", dependent.name
+            if testable_dependents.include? dependent
+              test "brew", "test", "--verbose", dependent.name
+            end
           end
         end
         test "brew", "uninstall", "--force", formula_name
@@ -609,11 +621,13 @@ module Homebrew
          && !ARGV.include?("--HEAD") && !ARGV.include?("--fast") \
          && satisfied_requirements?(formula, :devel)
         test "brew", "fetch", "--retry", "--devel", *fetch_args
-        run_as_not_developer { test "brew", "install", "--devel", "--verbose", formula_name }
+        run_as_not_developer do
+          test "brew", "install", "--devel", formula_name, *shared_install_args
+        end
         devel_install_passed = steps.last.passed?
         test "brew", "audit", "--devel", *audit_args
         if devel_install_passed
-          test "brew", "test", "--devel", "--verbose", formula_name if formula.test_defined?
+          test "brew", "test", "--devel", formula_name, *shared_test_args if formula.test_defined?
           test "brew", "uninstall", "--devel", "--force", formula_name
         end
       end
@@ -677,6 +691,7 @@ module Homebrew
         test "git", "clean", "-ffdx"
         HOMEBREW_REPOSITORY.cd do
           safe_system "git", "reset", "--hard"
+          Tap.names.each { |s| safe_system "brew", "untap", s if s != "homebrew/core" }
           safe_system "git", "clean", "-ffdx", "--exclude=/Library/Taps/"
         end
         if ARGV.include? "--local"
@@ -711,7 +726,7 @@ module Homebrew
       changed_formulae_dependents = {}
 
       @formulae.each do |formula|
-        formula_dependencies = Utils.popen_read("brew", "deps", "--skip-optional", formula).split("\n")
+        formula_dependencies = Utils.popen_read("brew", "deps", "--include-build", formula).split("\n")
         unchanged_dependencies = formula_dependencies - @formulae
         changed_dependences = formula_dependencies - unchanged_dependencies
         changed_dependences.each do |changed_formula|
@@ -794,7 +809,7 @@ module Homebrew
 
     if pr
       if ARGV.include?("--legacy")
-        pull_pr = "https://github.com/Homebrew/homebrew/pull/#{pr}"
+        pull_pr = "https://github.com/Homebrew/legacy-homebrew/pull/#{pr}"
         safe_system "brew", "pull", "--clean", "--legacy", pull_pr
       else
         pull_pr = "https://github.com/#{tap.user}/homebrew-#{tap.repo}/pull/#{pr}"
@@ -891,20 +906,13 @@ module Homebrew
 
   def test_bot
     sanitize_ARGV_and_ENV
-    p ARGV
 
     tap = resolve_test_tap
-    if tap.installed?
-      # make sure Tap is not a shallow clone.
-      # bottle revision and bottle upload rely on full clone.
-      if (tap.path/".git/shallow").exist?
-        safe_system "git", "-C", tap.path, "fetch", "--unshallow"
-      end
-    else
-      # Tap repository if required, this is done before everything else
-      # because Formula parsing and/or git commit hash lookup depends on it.
-      safe_system "brew", "tap", tap.name, "--full"
-    end
+    # Tap repository if required, this is done before everything else
+    # because Formula parsing and/or git commit hash lookup depends on it.
+    # At the same time, make sure Tap is not a shallow clone.
+    # bottle revision and bottle upload rely on full clone.
+    safe_system "brew", "tap", tap.name, "--full"
 
     if ARGV.include? "--ci-upload"
       return test_ci_upload(tap)

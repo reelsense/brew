@@ -47,11 +47,21 @@ class FormularyFactoryTest < Homebrew::TestCase
   end
 
   def test_factory_with_fully_qualified_name
-    assert_kind_of Formula, Formulary.factory("homebrew/homebrew/#{@name}")
+    assert_kind_of Formula, Formulary.factory("homebrew/core/#{@name}")
   end
 
   def test_formula_unavailable_error
     assert_raises(FormulaUnavailableError) { Formulary.factory("not_existed_formula") }
+  end
+
+  def test_formula_class_unavailable_error
+    name = "giraffe"
+    path = CoreTap.new.formula_dir/"#{name}.rb"
+    path.write "class Wrong#{Formulary.class_s(name)} < Formula\nend\n"
+
+    assert_raises(FormulaClassUnavailableError) { Formulary.factory(name) }
+  ensure
+    path.unlink
   end
 
   def test_factory_from_path

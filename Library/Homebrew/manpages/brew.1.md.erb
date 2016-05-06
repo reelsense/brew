@@ -1,37 +1,54 @@
+<%
+# To make changes to this man page:
+#
+# - For changes to a specific command (appears in the `COMMANDS` section):
+#   - Edit the top comment in `Library/Homebrew/cmd/<command>.{rb,sh}`.
+#   - Make sure to use the line prefix `#:` for the comments to be recognized as
+#     documentation. If in doubt, compare with already documented commands.
+# - For other changes: Edit this file.
+#
+# When done, regenerate the man page and its HTML version by running `brew man`.
+%>
+brew(1) -- The missing package manager for OS X
+===============================================
 
+## SYNOPSIS
 
-  * `--cache`:
-    Display Homebrew's download cache. See also `HOMEBREW_CACHE`.
+`brew` `--version`<br>
+`brew` <command> [`--verbose`|`-v`] [<options>] [<formula>] ...
 
-  * `--cache` <formula>:
-    Display the file or directory used to cache <formula>.
+## DESCRIPTION
 
-  * `--cellar`:
-    Display Homebrew's Cellar path. *Default:* `$(brew --prefix)/Cellar`, or if
-    that directory doesn't exist, `$(brew --repository)/Cellar`.
+Homebrew is the easiest and most flexible way to install the UNIX tools Apple
+didn't include with OS X.
 
-  * `--cellar` <formula>:
-    Display the location in the cellar where <formula> would be installed,
-    without any sort of versioned directory as the last path.
+## ESSENTIAL COMMANDS
 
-  * `--env`:
-    Show a summary of the Homebrew build environment.
+For the full command list, see the [COMMANDS][] section.
 
-  * `--prefix`:
-    Display Homebrew's install path. *Default:* `/usr/local`
+With `--verbose` or `-v`, many commands print extra debugging information. Note that these flags should only appear after a command.
 
-  * `--prefix` <formula>:
-    Display the location in the cellar where <formula> is or would be installed.
+  * `install` <formula>:
+    Install <formula>.
 
-  * `--repository`:
-    Display where Homebrew's `.git` directory is located. For standard installs,
-    the `prefix` and `repository` are the same directory.
+  * `remove` <formula>:
+    Uninstall <formula>.
 
-  * `--repository` <user>`/`<repo>:
-    Display where tap <user>`/`<repo>'s directory is located.
+  * `update`:
+    Fetch the newest version of Homebrew from GitHub using `git`(1).
 
-  * `--version`:
-    Print the version number of brew to standard error and exit.
+  * `list`:
+    List all installed formulae.
+
+  * `search` <text>|`/`<text>`/`:
+    Perform a substring search of formula names for <text>. If <text> is
+    surrounded with slashes, then it is interpreted as a regular expression.
+    The search for <text> is extended online to some popular taps.
+    If no search term is given, all locally available formulae are listed.
+
+## COMMANDS
+
+<%= commands.join("\n") %>
 
 ## EXTERNAL COMMANDS
 
@@ -52,7 +69,8 @@ can take several different forms:
     e.g. `git`, `node`, `wget`.
 
   * The fully-qualified name of a tapped formula:
-    Sometimes a formula from a tapped repository may conflict with one in `Homebrew/homebrew`.
+    Sometimes a formula from a tapped repository may conflict with one in
+    `homebrew/core`.
     You can still access these formulae by using a special syntax, e.g.
     `homebrew/dupes/vim` or `homebrew/versions/node4`.
 
@@ -151,8 +169,6 @@ can take several different forms:
 
   * `HOMEBREW_NO_ANALYTICS`:
     If set, Homebrew will not send analytics. See: <https://github.com/Homebrew/brew/blob/master/share/doc/homebrew/Analytics.md#analytics>
-
-    *Note:* Homebrew currently disables analytics by default.
 
   * `HOMEBREW_NO_EMOJI`:
     If set, Homebrew will not print the `HOMEBREW_INSTALL_BADGE` on a
