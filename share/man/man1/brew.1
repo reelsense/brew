@@ -189,17 +189,20 @@ Open all of Homebrew for editing\.
 Open \fIformula\fR in the editor\.
 .
 .TP
-\fBfetch\fR [\fB\-\-force\fR] [\fB\-v\fR] [\fB\-\-devel\fR|\fB\-\-HEAD\fR] [\fB\-\-deps\fR] [\fB\-\-build\-from\-source\fR|\fB\-\-force\-bottle\fR] \fIformulae\fR
+\fBfetch\fR [\fB\-\-force\fR] [\fB\-\-retry\fR] [\fB\-v\fR] [\fB\-\-devel\fR|\fB\-\-HEAD\fR] [\fB\-\-deps\fR] [\fB\-\-build\-from\-source\fR|\fB\-\-force\-bottle\fR] \fIformulae\fR
 Download the source packages for the given \fIformulae\fR\. For tarballs, also print SHA\-256 checksums\.
 .
 .IP
 If \fB\-\-HEAD\fR or \fB\-\-devel\fR is passed, fetch that version instead of the stable version\.
 .
 .IP
-If \fB\-v\fR is passed, do a verbose VCS checkout, if the URL represents a CVS\. This is useful for seeing if an existing VCS cache has been updated\.
+If \fB\-v\fR is passed, do a verbose VCS checkout, if the URL represents a VCS\. This is useful for seeing if an existing VCS cache has been updated\.
 .
 .IP
 If \fB\-\-force\fR is passed, remove a previously cached version and re\-fetch\.
+.
+.IP
+If \fB\-\-retry\fR is passed, retry if a download fails or re\-download if the checksum of a previously cached version no longer matches\.
 .
 .IP
 If \fB\-\-deps\fR is passed, also download dependencies for any listed \fIformulae\fR\.
@@ -209,6 +212,19 @@ If \fB\-\-build\-from\-source\fR is passed, download the source rather than a bo
 .
 .IP
 If \fB\-\-force\-bottle\fR is passed, download a bottle if it exists for the current version of OS X, even if it would not be used during installation\.
+.
+.TP
+\fBgist\-logs\fR [\fB\-\-new\-issue\fR|\fB\-n\fR] \fIformula\fR
+Upload logs for a failed build of \fIformula\fR to a new Gist\.
+.
+.IP
+\fIformula\fR is usually the name of the formula to install, but it can be specified in several different ways\. See \fISPECIFYING FORMULAE\fR\.
+.
+.IP
+If \fB\-\-new\-issue\fR is passed, automatically create a new issue in the appropriate GitHub repository as well as creating the Gist\.
+.
+.IP
+If no logs are found, an error message is presented\.
 .
 .TP
 \fBhome\fR
@@ -244,7 +260,7 @@ See the docs for examples of using the JSON: \fIhttps://github\.com/Homebrew/bre
 Install \fIformula\fR\.
 .
 .IP
-\fIformula\fR is usually the name of the formula to install, but it can be specified several different ways\. See \fISPECIFYING FORMULAE\fR\.
+\fIformula\fR is usually the name of the formula to install, but it can be specified in several different ways\. See \fISPECIFYING FORMULAE\fR\.
 .
 .IP
 If \fB\-\-debug\fR is passed and brewing fails, open an interactive debugging session with access to IRB or a shell inside the temporary build directory\.
@@ -265,7 +281,10 @@ If \fB\-\-only\-dependencies\fR is passed, install the dependencies with specifi
 If \fB\-\-cc=\fR\fIcompiler\fR is passed, attempt to compile using \fIcompiler\fR\. \fIcompiler\fR should be the name of the compiler\'s executable, for instance \fBgcc\-4\.2\fR for Apple\'s GCC 4\.2, or \fBgcc\-4\.9\fR for a Homebrew\-provided GCC 4\.9\.
 .
 .IP
-If \fB\-\-build\-from\-source\fR is passed, compile from source even if a bottle is provided for \fIformula\fR\.
+If \fB\-\-build\-from\-source\fR or \fB\-s\fR is passed, compile the specified \fIformula\fR from source even if a bottle is provided\. Dependencies will still be installed from bottles if they are available\.
+.
+.IP
+If \fBHOMEBREW_BUILD_FROM_SOURCE\fR is set, regardless of whether \fB\-\-build\-from\-source\fR was passed, then both \fIformula\fR and the dependencies installed as part of this process are built from source even if bottles are available\.
 .
 .IP
 If \fB\-\-force\-bottle\fR is passed, install from a bottle if it exists for the current version of OS X, even if custom options are given\.

@@ -2,7 +2,7 @@
 #:    Install <formula>.
 #:
 #:    <formula> is usually the name of the formula to install, but it can be specified
-#:    several different ways. See [SPECIFYING FORMULAE][].
+#:    in several different ways. See [SPECIFYING FORMULAE][].
 #:
 #:    If `--debug` is passed and brewing fails, open an interactive debugging
 #:    session with access to IRB or a shell inside the temporary build directory.
@@ -24,8 +24,13 @@
 #:    `gcc-4.2` for Apple's GCC 4.2, or `gcc-4.9` for a Homebrew-provided GCC
 #:    4.9.
 #:
-#:    If `--build-from-source` is passed, compile from source even if a bottle
-#:    is provided for <formula>.
+#:    If `--build-from-source` or `-s` is passed, compile the specified <formula> from
+#:    source even if a bottle is provided. Dependencies will still be installed
+#:    from bottles if they are available.
+#:
+#:    If `HOMEBREW_BUILD_FROM_SOURCE` is set, regardless of whether `--build-from-source` was
+#:    passed, then both <formula> and the dependencies installed as part of this process
+#:    are built from source even if bottles are available.
 #:
 #:    If `--force-bottle` is passed, install from a bottle if it exists
 #:    for the current version of OS X, even if custom options are given.
@@ -259,7 +264,7 @@ module Homebrew
     fi.ignore_deps         = ARGV.ignore_deps?
     fi.only_deps           = ARGV.only_deps?
     fi.build_bottle        = ARGV.build_bottle?
-    fi.build_from_source   = ARGV.build_from_source?
+    fi.build_from_source   = ARGV.build_from_source? || ARGV.build_all_from_source?
     fi.force_bottle        = ARGV.force_bottle?
     fi.interactive         = ARGV.interactive?
     fi.git                 = ARGV.git?

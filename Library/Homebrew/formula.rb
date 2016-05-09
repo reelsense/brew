@@ -2,7 +2,7 @@ require "formula_support"
 require "formula_lock"
 require "formula_pin"
 require "hardware"
-require "bottles"
+require "utils/bottles"
 require "build_environment"
 require "build_options"
 require "formulary"
@@ -794,6 +794,8 @@ class Formula
     opt_prefix+"Frameworks"
   end
 
+  # Indicates that this formula supports bottles. (Not necessarily that one
+  # should be used in the current installation run.)
   # Can be overridden to selectively disable bottles from formulae.
   # Defaults to true so overridden version does not have to check if bottles
   # are supported.
@@ -1480,12 +1482,12 @@ class Formula
         end
         log.puts
 
-        require "cmd/config"
+        require "system_config"
         require "build_environment"
 
         env = ENV.to_hash
 
-        Homebrew.dump_verbose_config(log)
+        SystemConfig.dump_verbose_config(log)
         log.puts
         Homebrew.dump_build_env(env, log)
 

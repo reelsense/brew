@@ -1,14 +1,17 @@
-#:  * `fetch` [`--force`] [`-v`] [`--devel`|`--HEAD`] [`--deps`] [`--build-from-source`|`--force-bottle`] <formulae>:
+#:  * `fetch` [`--force`] [`--retry`] [`-v`] [`--devel`|`--HEAD`] [`--deps`] [`--build-from-source`|`--force-bottle`] <formulae>:
 #:    Download the source packages for the given <formulae>.
 #:    For tarballs, also print SHA-256 checksums.
 #:
 #:    If `--HEAD` or `--devel` is passed, fetch that version instead of the
 #:    stable version.
 #:
-#:    If `-v` is passed, do a verbose VCS checkout, if the URL represents a CVS.
+#:    If `-v` is passed, do a verbose VCS checkout, if the URL represents a VCS.
 #:    This is useful for seeing if an existing VCS cache has been updated.
 #:
 #:    If `--force` is passed, remove a previously cached version and re-fetch.
+#:
+#:    If `--retry` is passed, retry if a download fails or re-download if the
+#:    checksum of a previously cached version no longer matches.
 #:
 #:    If `--deps` is passed, also download dependencies for any listed <formulae>.
 #:
@@ -64,7 +67,7 @@ module Homebrew
   def fetch_bottle?(f)
     return true if ARGV.force_bottle? && f.bottle
     return false unless f.bottle && f.pour_bottle?
-    return false if ARGV.build_from_source? || ARGV.build_bottle?
+    return false if ARGV.build_formula_from_source?(f)
     return false unless f.bottle.compatible_cellar?
     true
   end

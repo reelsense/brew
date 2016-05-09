@@ -1,4 +1,4 @@
-require "bottles"
+require "utils/bottles"
 require "formula"
 require "thread"
 
@@ -67,7 +67,7 @@ module Homebrew
         file = path
 
         if Pathname::BOTTLE_EXTNAME_RX === file.to_s
-          version = bottle_resolve_version(file) rescue file.version
+          version = Utils::Bottles.resolve_version(file) rescue file.version
         else
           version = file.version
         end
@@ -88,7 +88,7 @@ module Homebrew
           f.version > version
         end
 
-        if file_is_stale || ARGV.switch?("s") && !f.installed? || bottle_file_outdated?(f, file)
+        if file_is_stale || ARGV.switch?("s") && !f.installed? || Utils::Bottles::file_outdated?(f, file)
           cleanup_path(file) { file.unlink }
         end
       end

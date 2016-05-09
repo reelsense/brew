@@ -3,7 +3,7 @@ require "exceptions"
 require "formula"
 require "keg"
 require "tab"
-require "bottles"
+require "utils/bottles"
 require "caveats"
 require "cleaner"
 require "formula_cellar_checks"
@@ -428,7 +428,7 @@ class FormulaInstaller
     fi.options           |= tab.used_options
     fi.options           |= Tab.remap_deprecated_options(df.deprecated_options, dep.options)
     fi.options           |= inherited_options
-    fi.build_from_source  = build_from_source?
+    fi.build_from_source  = ARGV.build_formula_from_source?(df)
     fi.verbose            = verbose? && !quieter?
     fi.debug              = debug?
     fi.prelude
