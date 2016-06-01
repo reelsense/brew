@@ -26,7 +26,7 @@ require "migrator"
 # @see FileUtils
 # @see Pathname
 # @see http://www.rubydoc.info/github/Homebrew/brew/file/share/doc/homebrew/Formula-Cookbook.md Formula Cookbook
-# @see https://github.com/bbatsov/ruby-style-guide Ruby Style Guide
+# @see https://github.com/styleguide/ruby Ruby Style Guide
 #
 # <pre>class Wget < Formula
 #   homepage "https://www.gnu.org/software/wget/"
@@ -725,7 +725,6 @@ class Formula
   def plist
     nil
   end
-  alias_method :startup_plist, :plist
 
   # The generated launchd {.plist} service name.
   def plist_name
@@ -1989,12 +1988,7 @@ class Formula
 
     # Marks the {Formula} as failing with a particular compiler so it will fall back to others.
     # For Apple compilers, this should be in the format:
-    # <pre>fails_with :llvm do # :llvm is really llvm-gcc
-    #   build 2334
-    #   cause "Segmentation fault during linking."
-    # end
-    #
-    # fails_with :clang do
+    # <pre>fails_with :clang do
     #   build 600
     #   cause "multiple configure and compile errors"
     # end</pre>

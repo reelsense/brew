@@ -24,6 +24,14 @@ chdir() {
   cd "$@" >/dev/null || odie "Error: failed to cd to $*!"
 }
 
+brew() {
+  "$HOMEBREW_BREW_FILE" "$@"
+}
+
+git() {
+  "$HOMEBREW_LIBRARY/ENV/scm/git" "$@"
+}
+
 # Force UTF-8 to avoid encoding issues for users with broken locale settings.
 if [[ "$(locale charmap 2> /dev/null)" != "UTF-8" ]]
 then
@@ -187,9 +195,11 @@ case "$HOMEBREW_COMMAND" in
   --config)    HOMEBREW_COMMAND="config";;
 esac
 
-if [[ -f "$HOMEBREW_LIBRARY/Homebrew/cmd/$HOMEBREW_COMMAND.sh" ]]; then
+if [[ -f "$HOMEBREW_LIBRARY/Homebrew/cmd/$HOMEBREW_COMMAND.sh" ]]
+then
   HOMEBREW_BASH_COMMAND="$HOMEBREW_LIBRARY/Homebrew/cmd/$HOMEBREW_COMMAND.sh"
-elif [[ -n "$HOMEBREW_DEVELOPER" && -f "$HOMEBREW_LIBRARY/Homebrew/dev-cmd/$HOMEBREW_COMMAND.sh" ]]; then
+elif [[ -n "$HOMEBREW_DEVELOPER" && -f "$HOMEBREW_LIBRARY/Homebrew/dev-cmd/$HOMEBREW_COMMAND.sh" ]]
+then
   HOMEBREW_BASH_COMMAND="$HOMEBREW_LIBRARY/Homebrew/dev-cmd/$HOMEBREW_COMMAND.sh"
 fi
 
@@ -207,6 +217,8 @@ EOS
   esac
 fi
 
+# Hide shellcheck complaint:
+# shellcheck source=/dev/null
 source "$HOMEBREW_LIBRARY/Homebrew/utils/analytics.sh"
 setup-analytics
 report-analytics-screenview-command
@@ -217,10 +229,7 @@ update-preinstall() {
 
   if [[ "$HOMEBREW_COMMAND" = "install" || "$HOMEBREW_COMMAND" = "upgrade" ]]
   then
-    # Hide shellcheck complaint:
-    # shellcheck source=/dev/null
-    source "$HOMEBREW_LIBRARY/Homebrew/cmd/update.sh"
-    homebrew-update --preinstall
+    brew update --preinstall
   fi
 }
 

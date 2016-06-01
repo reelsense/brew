@@ -1,4 +1,4 @@
-#:  * `audit` [`--strict`] [`--online`] [`--display-cop-names`] [<formulae>]:
+#:  * `audit` [`--strict`] [`--online`] [`--display-cop-names`] [`--display-filename`] [<formulae>]:
 #:    Check <formulae> for Homebrew coding style violations. This should be
 #:    run before submitting a new formula.
 #:
@@ -12,6 +12,9 @@
 #:
 #:    If `--display-cop-names` is passed, the RuboCop cop name for each violation
 #:    is included in the output.
+#:
+#:    If `--display-filename` is passed, every line of output is prefixed with the
+#:    name of the file or formula being audited, to make the output easy to grep.
 #:
 #:    `audit` exits with a non-zero status if any errors are found. This is useful,
 #:    for instance, for implementing pre-commit hooks.
@@ -69,8 +72,12 @@ module Homebrew
 
       formula_count += 1
       problem_count += fa.problems.size
-      problem_lines = fa.problems.map { |p| "  * #{p.chomp.gsub("\n", "\n    ")}" }
-      puts "#{f.full_name}:", problem_lines
+      problem_lines = fa.problems.map { |p| "* #{p.chomp.gsub("\n", "\n    ")}" }
+      if ARGV.include? "--display-filename"
+        puts problem_lines.map { |s| "#{f.path}: #{s}" }
+      else
+        puts "#{f.full_name}:", problem_lines.map { |s| "  #{s}" }
+      end
     end
 
     unless problem_count.zero?
@@ -173,6 +180,10 @@ class FormulaAuditor
 
     if text.has_END? && !text.has_DATA?
       problem "'__END__' was found, but 'DATA' is not used"
+    end
+
+    if text =~ /inreplace [^\n]* do [^\n]*\n[^\n]*\.gsub![^\n]*\n\ *end/m
+      problem "'inreplace ... do' was used for a single substitution (use the non-block form instead)."
     end
 
     unless text.has_trailing_newline?
@@ -292,7 +303,7 @@ class FormulaAuditor
 
     same_name_tap_formulae.delete(full_name)
 
-    if same_name_tap_formulae.size > 0
+    unless same_name_tap_formulae.empty?
       problem "Formula name conflicts with #{same_name_tap_formulae.join ", "}"
     end
   end
@@ -404,7 +415,7 @@ class FormulaAuditor
 
     desc = formula.desc
 
-    unless desc && desc.length > 0
+    unless desc && !desc.empty?
       problem "Formula should have a desc (Description)."
       return
     end
@@ -541,11 +552,11 @@ class FormulaAuditor
   end
 
   def audit_specs
-    if head_only?(formula) && formula.tap.to_s.downcase !~ /-head-only$/
+    if head_only?(formula) && formula.tap.to_s.downcase !~ %r{[-/]head-only$}
       problem "Head-only (no stable download)"
     end
 
-    if devel_only?(formula) && formula.tap.to_s.downcase !~ /-devel-only$/
+    if devel_only?(formula) && formula.tap.to_s.downcase !~ %r{[-/]devel-only$}
       problem "Devel-only (no stable download)"
     end
 
@@ -629,6 +640,13 @@ class FormulaAuditor
       unless patch.url =~ /[a-fA-F0-9]{40}/
         problem "GitHub/Gist patches should specify a revision:\n#{patch.url}"
       end
+    when %r{https?://patch-diff\.githubusercontent\.com/raw/(.+)/(.+)/pull/(.+)\.(?:diff|patch)}
+      problem <<-EOS.undent
+        use GitHub pull request URLs:
+          https://github.com/#{$1}/#{$2}/pulls/#{$3}.patch
+        Rather than patch-diff:
+          #{patch.url}
+      EOS
     when %r{macports/trunk}
       problem "MacPorts patches should specify a revision instead of trunk:\n#{patch.url}"
     when %r{^http://trac\.macports\.org}
@@ -885,7 +903,7 @@ class FormulaAuditor
     end
 
     if @strict
-      if line =~ /system (["'][^"' ]*(?:\s[^"' ]*)+["'])/
+      if line =~ /system ((["'])[^"' ]*(?:\s[^"' ]*)+\2)/
         bad_system = $1
         unless %w[| < > & ; *].any? { |c| bad_system.include? c }
           good_system = bad_system.gsub(" ", "\", \"")
@@ -1142,16 +1160,28 @@ class ResourceAuditor
            %r{^http://mirrors\.kernel\.org/},
            %r{^http://(?:[^/]*\.)?bintray\.com/},
            %r{^http://tools\.ietf\.org/},
-           %r{^http://www\.mirrorservice\.org/},
            %r{^http://launchpad\.net/},
            %r{^http://bitbucket\.org/},
+           %r{^http://cpan\.metacpan\.org/},
            %r{^http://hackage\.haskell\.org/},
-           %r{^http://(?:[^/]*\.)?archive\.org}
+           %r{^http://(?:[^/]*\.)?archive\.org},
+           %r{^http://(?:[^/]*\.)?freedesktop\.org},
+           %r{^http://(?:[^/]*\.)?mirrorservice\.org/}
         problem "Please use https:// for #{p}"
       when %r{^http://search\.mcpan\.org/CPAN/(.*)}i
         problem "#{p} should be `https://cpan.metacpan.org/#{$1}`"
       when %r{^(http|ftp)://ftp\.gnome\.org/pub/gnome/(.*)}i
         problem "#{p} should be `https://download.gnome.org/#{$2}`"
+      end
+    end
+
+    # Prefer HTTP/S when possible over FTP protocol due to possible firewalls.
+    urls.each do |p|
+      case p
+      when %r{^ftp://ftp\.mirrorservice\.org}
+        problem "Please use https:// for #{p}"
+      when %r{^ftp://ftp\.cpan\.org/pub/CPAN(.*)}i
+        problem "#{p} should be `http://search.cpan.org/CPAN#{$1}`"
       end
     end
 
@@ -1168,7 +1198,7 @@ class ResourceAuditor
         problem "Don't use #{$1}use_mirror in SourceForge urls (url is #{p})."
       end
 
-      if p =~ /\/download$/
+      if p.end_with?("/download")
         problem "Don't use /download in SourceForge urls (url is #{p})."
       end
 
@@ -1227,6 +1257,17 @@ class ResourceAuditor
     urls.each do |u|
       next unless u =~ %r{https://.*github.*/(archive|releases)/.*\.zip$} && u !~ %r{releases/download}
       problem "Use GitHub tarballs rather than zipballs (url is #{u})."
+    end
+
+    # Don't use GitHub codeload URLs
+    urls.each do |u|
+      next unless u =~ %r{https?://codeload\.github\.com/(.+)/(.+)/(?:tar\.gz|zip)/(.+)}
+      problem <<-EOS.undent
+        use GitHub archive URLs:
+          https://github.com/#{$1}/#{$2}/archive/#{$3}.tar.gz
+        Rather than codeload:
+          #{u}
+      EOS
     end
   end
 

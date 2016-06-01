@@ -2,7 +2,7 @@ require "digest/md5"
 require "tap"
 
 # The Formulary is responsible for creating instances of Formula.
-# It is not meant to be used directy from formulae.
+# It is not meant to be used directly from formulae.
 
 class Formulary
   FORMULAE = {}
@@ -16,6 +16,10 @@ class Formulary
   end
 
   def self.load_formula(name, path, contents, namespace)
+    if ENV["HOMEBREW_DISABLE_LOAD_FORMULA"]
+      raise "Formula loading disabled by HOMEBREW_DISABLE_LOAD_FORMULA!"
+    end
+
     mod = Module.new
     const_set(namespace, mod)
     mod.module_eval(contents, path)
