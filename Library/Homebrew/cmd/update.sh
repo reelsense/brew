@@ -95,11 +95,13 @@ read_current_revision() {
 
 pop_stash() {
   [[ -z "$STASHED" ]] && return
-  git stash pop "${QUIET_ARGS[@]}"
   if [[ -n "$HOMEBREW_VERBOSE" ]]
   then
+    git stash pop
     echo "Restoring your stashed changes to $DIR:"
     git status --short --untracked-files
+  else
+    git stash pop "${QUIET_ARGS[@]}" 1>/dev/null
   fi
   unset STASHED
 }
@@ -124,7 +126,7 @@ reset_on_interrupt() {
     git reset --hard "$INITIAL_REVISION" "${QUIET_ARGS[@]}"
   fi
 
-  if [[ "$INITIAL_BRANCH" != "$UPSTREAM_BRANCH" && -n "$INITIAL_BRANCH" ]]
+  if [[ -n "$HOMEBREW_DEVELOPER" ]]
   then
     pop_stash
   else
@@ -225,10 +227,13 @@ pull() {
 
   trap '' SIGINT
 
-  if [[ -n "$HOMEBREW_DEVELOPER" ]] &&
-     [[ "$INITIAL_BRANCH" != "$UPSTREAM_BRANCH" && -n "$INITIAL_BRANCH" ]]
+  if [[ -n "$HOMEBREW_DEVELOPER" ]]
   then
-    git checkout "${QUIET_ARGS[@]}" "$INITIAL_BRANCH"
+    if [[ "$INITIAL_BRANCH" != "$UPSTREAM_BRANCH" && -n "$INITIAL_BRANCH" ]]
+    then
+      git checkout "$INITIAL_BRANCH"
+    fi
+
     pop_stash
   else
     pop_stash_message
@@ -379,7 +384,9 @@ EOS
 
   chdir "$HOMEBREW_REPOSITORY"
 
-  if [[ -n "$HOMEBREW_UPDATED" || -n "$HOMEBREW_UPDATE_FAILED" ]]
+  if [[ -n "$HOMEBREW_UPDATED" ||
+        -n "$HOMEBREW_UPDATE_FAILED" ||
+        -n "$HOMEBREW_DEVELOPER" ]]
   then
     brew update-report "$@"
     return $?

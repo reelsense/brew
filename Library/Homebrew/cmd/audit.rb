@@ -919,8 +919,8 @@ class FormulaAuditor
         problem "Use \#{pkgshare} instead of \#{share}/#{formula.name}"
       end
 
-      if line =~ %r{share/"#{Regexp.escape(formula.name)}[/'"]}
-        problem "Use pkgshare instead of (share/\"#{formula.name}\")"
+      if line =~ %r{share(\s*[/+]\s*)(['"])#{Regexp.escape(formula.name)}(?:\2|/)}
+        problem "Use pkgshare instead of (share#{$1}\"#{formula.name}\")"
       end
     end
   end
@@ -1268,6 +1268,12 @@ class ResourceAuditor
         Rather than codeload:
           #{u}
       EOS
+    end
+
+    # Check for Maven Central urls, prefer HTTPS redirector over specific host
+    urls.each do |u|
+      next unless u =~ %r{https?://(?:central|repo\d+)\.maven\.org/maven2/(.+)$}
+      problem "#{u} should be `https://search.maven.org/remotecontent?filepath=#{$1}`"
     end
   end
 
