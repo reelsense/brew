@@ -3,28 +3,34 @@
 # Usage: brew test-bot [options...] <pull-request|formula>
 #
 # Options:
-# --keep-logs:     Write and keep log files under ./brewbot/.
-# --cleanup:       Clean the Homebrew directory. Very dangerous. Use with care.
-# --clean-cache:   Remove all cached downloads. Use with care.
-# --skip-setup:    Don't check the local system is setup correctly.
-# --skip-homebrew: Don't check Homebrew's files and tests are all valid.
-# --junit:         Generate a JUnit XML test results file.
-# --no-bottle:     Run brew install without --build-bottle.
-# --keep-old:      Run brew bottle --keep-old to build new bottles for a single platform.
-# --HEAD:          Run brew install with --HEAD.
-# --local:         Ask Homebrew to write verbose logs under ./logs/ and set HOME to ./home/.
-# --tap=<tap>:     Use the git repository of the given tap.
-# --dry-run:       Just print commands, don't run them.
-# --fail-fast:     Immediately exit on a failing step.
-# --verbose:       Print test step output in realtime. Has the side effect of passing output
-#                  as raw bytes instead of re-encoding in UTF-8.
-# --fast:          Don't install any packages, but run e.g. audit anyway.
-# --keep-tmp:      Keep temporary files written by main installs and tests that are run.
+# --keep-logs:           Write and keep log files under ./brewbot/.
+# --cleanup:             Clean the Homebrew directory. Very dangerous. Use with care.
+# --clean-cache:         Remove all cached downloads. Use with care.
+# --skip-setup:          Don't check the local system is setup correctly.
+# --skip-homebrew:       Don't check Homebrew's files and tests are all valid.
+# --junit:               Generate a JUnit XML test results file.
+# --no-bottle:           Run brew install without --build-bottle.
+# --keep-old:            Run brew bottle --keep-old to build new bottles for a single platform.
+# --skip-relocation:     Run brew bottle --skip-relocation to build new bottles for homebrew/portable.
+# --HEAD:                Run brew install with --HEAD.
+# --local:               Ask Homebrew to write verbose logs under ./logs/ and set HOME to ./home/.
+# --tap=<tap>:           Use the git repository of the given tap.
+# --dry-run:             Just print commands, don't run them.
+# --fail-fast:           Immediately exit on a failing step.
+# --verbose:             Print test step output in realtime. Has the side effect of passing output
+#                        as raw bytes instead of re-encoding in UTF-8.
+# --fast:                Don't install any packages, but run e.g. audit anyway.
+# --keep-tmp:            Keep temporary files written by main installs and tests that are run.
+# --no-pull              Don't use `brew pull` when possible.
 #
 # --ci-master:           Shortcut for Homebrew master branch CI options.
 # --ci-pr:               Shortcut for Homebrew pull request CI options.
 # --ci-testing:          Shortcut for Homebrew testing CI options.
 # --ci-upload:           Homebrew CI bottle upload.
+#
+# Influential environment variables include:
+# TRAVIS_REPO_SLUG: same as --tap
+# GIT_URL: if set to URL of a tap remote, same as --tap
 
 require "formula"
 require "utils"
@@ -39,10 +45,6 @@ module Homebrew
   MAX_STEP_OUTPUT_SIZE = BYTES_IN_1_MEGABYTE - (200*1024) # margin of safety
 
   HOMEBREW_TAP_REGEX = %r{^([\w-]+)/homebrew-([\w-]+)$}
-
-  def ruby_has_encoding?
-    String.method_defined?(:force_encoding)
-  end
 
   if ruby_has_encoding?
     def fix_encoding!(str)
@@ -89,9 +91,17 @@ module Homebrew
     end
   end
 
+  # Wraps command invocations. Instantiated by Test#test.
+  # Handles logging and pretty-printing.
   class Step
-    attr_reader :command, :name, :status, :output, :time
+    attr_reader :command, :name, :status, :output
 
+    # Instantiates a Step object.
+    # @param test [Test] The parent Test object
+    # @param command [Array<String>] Command to execute and arguments
+    # @param options [Hash] Recognized options are:
+    #   :puts_output_on_success
+    #   :repository
     def initialize(test, command, options = {})
       @test = test
       @category = test.category
@@ -100,7 +110,6 @@ module Homebrew
       @name = command[1].delete("-")
       @status = :running
       @repository = options[:repository] || HOMEBREW_REPOSITORY
-      @time = 0
     end
 
     def log_file_path
@@ -148,6 +157,9 @@ module Homebrew
       @output && !@output.empty?
     end
 
+    # The execution time of the task.
+    # Precondition: Step#run has been called.
+    # @return [Float] execution time in seconds
     def time
       @end_time - @start_time
     end
@@ -166,7 +178,7 @@ module Homebrew
       verbose = ARGV.verbose?
       # Step may produce arbitrary output and we read it bytewise, so must
       # buffer it as binary and convert to UTF-8 once complete
-      output = Homebrew.ruby_has_encoding? ? "".encode!("BINARY") : ""
+      output = ruby_has_encoding? ? "".encode!("BINARY") : ""
       working_dir = Pathname.new(@command.first == "git" ? @repository : Dir.pwd)
       read, write = IO.pipe
 
@@ -277,7 +289,7 @@ module Homebrew
           start_revision, end_revision, "--", path
         ).lines.map do |line|
           file = Pathname.new line.chomp
-          next unless file.extname == ".rb"
+          next unless @tap.formula_file?(file)
           @tap.formula_file_to_name(file)
         end.compact
       end
@@ -293,6 +305,12 @@ module Homebrew
         @url = ENV["ghprbPullLink"]
         @hash = nil
         test "git", "checkout", "origin/master"
+      elsif ENV["GIT_URL"] && ENV["GIT_BRANCH"]
+        git_url = ENV["GIT_URL"].chomp("/").chomp(".git")
+        %r{origin/pr/(\d+)/(merge|head)} =~ ENV["GIT_BRANCH"]
+        pr = $1
+        @url = "#{git_url}/pull/#{pr}"
+        @hash = nil
       # Use Travis CI pull-request variables for pull request jobs.
       elsif travis_pr
         @url = "https://github.com/#{ENV["TRAVIS_REPO_SLUG"]}/pull/#{ENV["TRAVIS_PULL_REQUEST"]}"
@@ -337,7 +355,7 @@ module Homebrew
       elsif @url
         # TODO: in future Travis CI may need to also use `brew pull` to e.g. push
         # the right commit to BrewTestBot.
-        unless travis_pr
+        if !travis_pr && !ARGV.include?("--no-pull")
           diff_start_sha1 = current_sha1
           test "brew", "pull", "--clean", @url
           diff_end_sha1 = current_sha1
@@ -400,7 +418,10 @@ module Homebrew
     def setup
       @category = __method__
       return if ARGV.include? "--skip-setup"
-      test "brew", "doctor" if !ENV["TRAVIS"] && ENV["HOMEBREW_RUBY"] != "1.8.7"
+      if !ENV["TRAVIS"] && ENV["HOMEBREW_RUBY"] != "1.8.7" &&
+          HOMEBREW_PREFIX.to_s == "/usr/local"
+        test "brew", "doctor"
+      end
       test "brew", "--env"
       test "brew", "config"
     end
@@ -566,6 +587,7 @@ module Homebrew
         if formula.stable? && !ARGV.include?("--fast") && !ARGV.include?("--no-bottle") && !formula.bottle_disabled?
           bottle_args = ["--verbose", "--json", formula_name]
           bottle_args << "--keep-old" if ARGV.include? "--keep-old"
+          bottle_args << "--skip-relocation" if ARGV.include? "--skip-relocation"
           test "brew", "bottle", *bottle_args
           bottle_step = steps.last
           if bottle_step.passed? && bottle_step.has_output?
@@ -635,12 +657,15 @@ module Homebrew
       @category = __method__
       return if @skip_homebrew
 
-      ruby_two = RUBY_VERSION.split(".").first.to_i >= 2
-
       if @tap.nil?
         tests_args = []
-        tests_args << "--coverage" if ruby_two && ENV["TRAVIS"]
+        if RUBY_TWO
+          tests_args << "--official-cmd-taps"
+          tests_args << "--coverage" if ENV["TRAVIS"]
+        end
         test "brew", "tests", *tests_args
+        test "brew", "tests", "--generic", "--only=integration_cmds",
+                              *tests_args
         test "brew", "tests", "--no-compat"
         test "brew", "readall", "--syntax"
       else
@@ -655,15 +680,19 @@ module Homebrew
       git "stash"
       git "am", "--abort"
       git "rebase", "--abort"
-      git "reset", "--hard"
       git "checkout", "-f", "master"
+      git "reset", "--hard", "origin/master"
       git "clean", "-ffdx"
-      HOMEBREW_REPOSITORY.cd do
-        safe_system "git", "reset", "--hard"
-        safe_system "git", "checkout", "-f", "master"
-        # This will uninstall all formulae, as long as
-        # HOMEBREW_REPOSITORY == HOMEBREW_PREFIX, which is true on the test bots
-        safe_system "git", "clean", "-ffdx", "--exclude=/Library/Taps/" unless ENV["HOMEBREW_RUBY"] == "1.8.7"
+      unless @repository == HOMEBREW_REPOSITORY
+        HOMEBREW_REPOSITORY.cd do
+          safe_system "git", "checkout", "-f", "master"
+          safe_system "git", "reset", "--hard", "origin/master"
+          # This will uninstall all formulae, as long as
+          # HOMEBREW_REPOSITORY == HOMEBREW_PREFIX, which is true on the test bots
+          unless ENV["HOMEBREW_RUBY"] == "1.8.7"
+            safe_system "git", "clean", "-ffdx", "--exclude=/Library/Taps/"
+          end
+        end
       end
       pr_locks = "#{@repository}/.git/refs/remotes/*/pr/*/*.lock"
       Dir.glob(pr_locks) { |lock| FileUtils.rm_rf lock }
@@ -680,16 +709,19 @@ module Homebrew
       end
 
       if ARGV.include? "--cleanup"
-        test "git", "reset", "--hard"
+        git "reset", "--hard", "origin/master"
         git "stash", "pop"
         test "brew", "cleanup", "--prune=7"
         git "gc", "--auto"
         test "git", "clean", "-ffdx"
-        HOMEBREW_REPOSITORY.cd do
-          safe_system "git", "reset", "--hard"
-          Tap.names.each { |s| safe_system "brew", "untap", s if s != "homebrew/core" }
-          safe_system "git", "clean", "-ffdx", "--exclude=/Library/Taps/"
+        unless @repository == HOMEBREW_REPOSITORY
+          HOMEBREW_REPOSITORY.cd do
+            safe_system "git", "reset", "--hard"
+            safe_system "git", "clean", "-ffdx", "--exclude=/Library/Taps/"
+          end
         end
+        Tap.names.each { |s| safe_system "brew", "untap", s if s != "homebrew/core" }
+
         if ARGV.include? "--local"
           FileUtils.rm_rf ENV["HOMEBREW_HOME"]
           FileUtils.rm_rf ENV["HOMEBREW_LOGS"]
@@ -764,8 +796,6 @@ module Homebrew
   end
 
   def test_ci_upload(tap)
-    raise "Need a tap to upload!" unless tap
-
     # Don't trust formulae we're uploading
     ENV["HOMEBREW_DISABLE_LOAD_FORMULA"] = "1"
 
@@ -792,6 +822,14 @@ module Homebrew
     return if bottles.empty?
     FileUtils.cp bottles, Dir.pwd, :verbose => true
 
+    json_files = Dir.glob("*.bottle.json")
+    bottles_hash = json_files.reduce({}) do |hash, json_file|
+      deep_merge_hashes hash, Utils::JSON.load(IO.read(json_file))
+    end
+
+    first_formula_name = bottles_hash.keys.first
+    tap = Tap.fetch(first_formula_name.rpartition("/").first.chuzzle || "homebrew/core")
+
     ENV["GIT_AUTHOR_NAME"] = ENV["GIT_COMMITTER_NAME"] = "BrewTestBot"
     ENV["GIT_AUTHOR_EMAIL"] = ENV["GIT_COMMITTER_EMAIL"] = "brew-test-bot@googlegroups.com"
     ENV["GIT_WORK_TREE"] = tap.path
@@ -811,7 +849,6 @@ module Homebrew
       safe_system "brew", "pull", "--clean", pull_pr
     end
 
-    json_files = Dir.glob("*.bottle.json")
     system "brew", "bottle", "--merge", "--write", *json_files
 
     remote = "git@github.com:BrewTestBot/homebrew-#{tap.repo}.git"
@@ -819,10 +856,6 @@ module Homebrew
     safe_system "git", "push", "--force", remote, "master:master", ":refs/tags/#{git_tag}"
 
     formula_packaged = {}
-
-    bottles_hash = json_files.reduce({}) do |hash, json_file|
-      deep_merge_hashes hash, Utils::JSON.load(IO.read(json_file))
-    end
 
     bottles_hash.each do |formula_name, bottle_hash|
       version = bottle_hash["formula"]["pkg_version"]
@@ -876,7 +909,7 @@ module Homebrew
 
     ENV["HOMEBREW_DEVELOPER"] = "1"
     ENV["HOMEBREW_SANDBOX"] = "1"
-    ENV["HOMEBREW_RUBY_MACHO"] = "1" if RUBY_VERSION.split(".").first.to_i >= 2
+    ENV["HOMEBREW_RUBY_MACHO"] = "1" if RUBY_TWO
     ENV["HOMEBREW_NO_EMOJI"] = "1"
     ENV["HOMEBREW_FAIL_LOG_LINES"] = "150"
     ENV["HOMEBREW_EXPERIMENTAL_FILTER_FLAGS_ON_DEPS"] = "1"
@@ -1012,17 +1045,10 @@ module Homebrew
 
       # Truncate to 1MB to avoid hitting CI limits
       if output.bytesize > MAX_STEP_OUTPUT_SIZE
-        if ruby_has_encoding?
-          binary_output = output.force_encoding("BINARY")
-          output = binary_output.slice(-MAX_STEP_OUTPUT_SIZE, MAX_STEP_OUTPUT_SIZE)
-          fix_encoding!(output)
-        else
-          output = output.slice(-MAX_STEP_OUTPUT_SIZE, MAX_STEP_OUTPUT_SIZE)
-        end
+        output = truncate_text_to_approximate_size(output, MAX_STEP_OUTPUT_SIZE, :front_weight => 0.0)
         output = "truncated output to 1MB:\n" + output
       end
     end
     output
   end
 end
-

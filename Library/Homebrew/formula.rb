@@ -956,33 +956,31 @@ class Formula
     @oldname_lock.unlock unless @oldname_lock.nil?
   end
 
+  def migration_needed?
+    return false unless oldname
+    return false if rack.exist?
+
+    old_rack = HOMEBREW_CELLAR/oldname
+    return false unless old_rack.directory?
+    return false if old_rack.subdirs.empty?
+
+    tap == Tab.for_keg(old_rack.subdirs.first).tap
+  end
+
   # @private
   def outdated_versions
     @outdated_versions ||= begin
       all_versions = []
-      older_or_same_tap_versions = []
 
-      if oldname && !rack.exist? && (dir = HOMEBREW_CELLAR/oldname).directory? &&
-        !dir.subdirs.empty? && tap == Tab.for_keg(dir.subdirs.first).tap
-        raise Migrator::MigrationNeededError.new(self)
-      end
+      raise Migrator::MigrationNeededError.new(self) if migration_needed?
 
       installed_kegs.each do |keg|
         version = keg.version
         all_versions << version
-        older_version = pkg_version <= version
-
-        tab_tap = Tab.for_keg(keg).tap
-        if tab_tap.nil? || tab_tap == tap || older_version
-          older_or_same_tap_versions << version
-        end
+        return [] if pkg_version <= version
       end
 
-      if older_or_same_tap_versions.all? { |v| pkg_version > v }
-        all_versions.sort!
-      else
-        []
-      end
+      all_versions.sort!
     end
   end
 
@@ -1326,6 +1324,8 @@ class Formula
   # @private
   def run_test
     old_home = ENV["HOME"]
+    old_curl_home = ENV["CURL_HOME"]
+    ENV["CURL_HOME"] = old_curl_home || old_home
     build, self.build = self.build, Tab.for_formula(self)
     mktemp("#{name}-test") do |staging|
       staging.retain! if ARGV.keep_tmp?
@@ -1343,6 +1343,7 @@ class Formula
     @testpath = nil
     self.build = build
     ENV["HOME"] = old_home
+    ENV["CURL_HOME"] = old_curl_home
   end
 
   # @private
@@ -1557,6 +1558,8 @@ class Formula
       mkdir_p env_home
 
       old_home, ENV["HOME"] = ENV["HOME"], env_home
+      old_curl_home = ENV["CURL_HOME"]
+      ENV["CURL_HOME"] = old_curl_home || old_home
       setup_home env_home
 
       begin
@@ -1564,6 +1567,7 @@ class Formula
       ensure
         @buildpath = nil
         ENV["HOME"] = old_home
+        ENV["CURL_HOME"] = old_curl_home
       end
     end
   end

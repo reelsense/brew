@@ -1,3 +1,5 @@
+require "os/mac/xcode"
+
 # @private
 class DevelopmentTools
   class << self
@@ -13,11 +15,18 @@ class DevelopmentTools
       end
     end
 
+    # Checks if the user has any developer tools installed, either via Xcode
+    # or the CLT. Convenient for guarding against formula builds when building
+    # is impossible.
+    def installed?
+      MacOS::Xcode.installed? || MacOS::CLT.installed?
+    end
+
     def default_compiler
       case default_cc
       # if GCC 4.2 is installed, e.g. via Tigerbrew, prefer it
       # over the system's GCC 4.0
-      when /^gcc-4.0/ then gcc_42_build_version ? :gcc : :gcc_4_0
+      when /^gcc-4\.0/ then gcc_42_build_version ? :gcc : :gcc_4_0
       when /^gcc/ then :gcc
       when "clang" then :clang
       else

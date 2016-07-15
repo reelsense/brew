@@ -57,15 +57,8 @@ module Homebrew
       # skip document file.
       next if Metafiles::EXTENSIONS.include? file.extname
 
-      # Check dynamic library linkage. Importantly, do not run otool on static
-      # libraries, which will falsely report "linkage" to themselves.
-      if file.mach_o_executable? || file.dylib? || file.mach_o_bundle?
-        linked_libraries = file.dynamically_linked_libraries
-        linked_libraries = linked_libraries.select { |lib| lib.include? string }
-        result ||= linked_libraries.any?
-      else
-        linked_libraries = []
-      end
+      linked_libraries = Keg.file_linked_libraries(file, string)
+      result ||= linked_libraries.any?
 
       if ARGV.verbose?
         print_filename(string, file) if linked_libraries.any?
@@ -194,10 +187,12 @@ module Homebrew
       original_tab = nil
 
       begin
-        keg.relocate_install_names prefix, Keg::PREFIX_PLACEHOLDER,
-          cellar, Keg::CELLAR_PLACEHOLDER
-        keg.relocate_text_files prefix, Keg::PREFIX_PLACEHOLDER,
-          cellar, Keg::CELLAR_PLACEHOLDER
+        unless ARGV.include? "--skip-relocation"
+          keg.relocate_dynamic_linkage prefix, Keg::PREFIX_PLACEHOLDER,
+            cellar, Keg::CELLAR_PLACEHOLDER
+          keg.relocate_text_files prefix, Keg::PREFIX_PLACEHOLDER,
+            cellar, Keg::CELLAR_PLACEHOLDER
+        end
 
         keg.delete_pyc_files!
 
@@ -243,23 +238,30 @@ module Homebrew
 
         ignores = []
         if f.deps.any? { |dep| dep.name == "go" }
-          ignores << %r{#{HOMEBREW_CELLAR}/go/[\d\.]+/libexec}
+          ignores << %r{#{Regexp.escape(HOMEBREW_CELLAR)}/go/[\d\.]+/libexec}
         end
 
-        relocatable = !keg_contains(prefix_check, keg, ignores)
-        relocatable = !keg_contains(cellar, keg, ignores) && relocatable
-        skip_relocation = relocatable && !keg.require_install_name_tool?
+        if ARGV.include? "--skip-relocation"
+          relocatable = true
+          skip_relocation = true
+        else
+          relocatable = !keg_contains(prefix_check, keg, ignores)
+          relocatable = !keg_contains(cellar, keg, ignores) && relocatable
+          skip_relocation = relocatable && !keg.require_install_name_tool?
+        end
         puts if !relocatable && ARGV.verbose?
       rescue Interrupt
         ignore_interrupts { bottle_path.unlink if bottle_path.exist? }
         raise
       ensure
         ignore_interrupts do
-          original_tab.write
-          keg.relocate_install_names Keg::PREFIX_PLACEHOLDER, prefix,
-            Keg::CELLAR_PLACEHOLDER, cellar
-          keg.relocate_text_files Keg::PREFIX_PLACEHOLDER, prefix,
-            Keg::CELLAR_PLACEHOLDER, cellar
+          original_tab.write if original_tab
+          unless ARGV.include? "--skip-relocation"
+            keg.relocate_dynamic_linkage Keg::PREFIX_PLACEHOLDER, prefix,
+              Keg::CELLAR_PLACEHOLDER, cellar
+            keg.relocate_text_files Keg::PREFIX_PLACEHOLDER, prefix,
+              Keg::CELLAR_PLACEHOLDER, cellar
+          end
         end
       end
     end

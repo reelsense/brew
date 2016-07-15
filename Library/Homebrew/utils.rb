@@ -1,4 +1,5 @@
 require "pathname"
+require "emoji"
 require "exceptions"
 require "utils/hash"
 require "utils/json"
@@ -12,16 +13,6 @@ require "utils/curl"
 
 class Tty
   class << self
-    def tick
-      # necessary for 1.8.7 unicode handling since many installs are on 1.8.7
-      @tick ||= ["2714".hex].pack("U*")
-    end
-
-    def cross
-      # necessary for 1.8.7 unicode handling since many installs are on 1.8.7
-      @cross ||= ["2718".hex].pack("U*")
-    end
-
     def strip_ansi(string)
       string.gsub(/\033\[\d+(;\d+)*m/, "")
     end
@@ -124,20 +115,20 @@ end
 def pretty_installed(f)
   if !$stdout.tty?
     "#{f}"
-  elsif ENV["HOMEBREW_NO_EMOJI"]
-    "#{Tty.highlight}#{Tty.green}#{f} (installed)#{Tty.reset}"
+  elsif Emoji.enabled?
+    "#{Tty.highlight}#{f} #{Tty.green}#{Emoji.tick}#{Tty.reset}"
   else
-    "#{Tty.highlight}#{f} #{Tty.green}#{Tty.tick}#{Tty.reset}"
+    "#{Tty.highlight}#{Tty.green}#{f} (installed)#{Tty.reset}"
   end
 end
 
 def pretty_uninstalled(f)
   if !$stdout.tty?
     "#{f}"
-  elsif ENV["HOMEBREW_NO_EMOJI"]
-    "#{Tty.red}#{f} (uninstalled)#{Tty.reset}"
+  elsif Emoji.enabled?
+    "#{f} #{Tty.red}#{Emoji.cross}#{Tty.reset}"
   else
-    "#{f} #{Tty.red}#{Tty.cross}#{Tty.reset}"
+    "#{Tty.red}#{f} (uninstalled)#{Tty.reset}"
   end
 end
 
@@ -198,34 +189,9 @@ module Homebrew
     _system(cmd, *args)
   end
 
-  def self.git_origin
-    return unless Utils.git_available?
-    HOMEBREW_REPOSITORY.cd { `git config --get remote.origin.url 2>/dev/null`.chuzzle }
-  end
-
-  def self.git_head
-    return unless Utils.git_available?
-    HOMEBREW_REPOSITORY.cd { `git rev-parse --verify -q HEAD 2>/dev/null`.chuzzle }
-  end
-
-  def self.git_short_head
-    return unless Utils.git_available?
-    HOMEBREW_REPOSITORY.cd { `git rev-parse --short=4 --verify -q HEAD 2>/dev/null`.chuzzle }
-  end
-
-  def self.git_last_commit
-    return unless Utils.git_available?
-    HOMEBREW_REPOSITORY.cd { `git show -s --format="%cr" HEAD 2>/dev/null`.chuzzle }
-  end
-
-  def self.git_last_commit_date
-    return unless Utils.git_available?
-    HOMEBREW_REPOSITORY.cd { `git show -s --format="%cd" --date=short HEAD 2>/dev/null`.chuzzle }
-  end
-
   def self.homebrew_version_string
-    if pretty_revision = git_short_head
-      last_commit = git_last_commit_date
+    if pretty_revision = HOMEBREW_REPOSITORY.git_short_head
+      last_commit = HOMEBREW_REPOSITORY.git_last_commit_date
       "#{HOMEBREW_VERSION} (git revision #{pretty_revision}; last commit #{last_commit})"
     else
       "#{HOMEBREW_VERSION} (no git repository)"
@@ -431,6 +397,7 @@ def which_editor
 end
 
 def exec_editor(*args)
+  puts "Editing #{args.join "\n"}"
   safe_exec(which_editor, *args)
 end
 
@@ -532,4 +499,50 @@ def number_readable(number)
   numstr = number.to_i.to_s
   (numstr.size - 3).step(1, -3) { |i| numstr.insert(i, ",") }
   numstr
+end
+
+# True if this version of Ruby supports text encodings in its strings
+def ruby_has_encoding?
+  String.method_defined?(:force_encoding)
+end
+
+# Truncates a text string to fit within a byte size constraint,
+# preserving character encoding validity. The returned string will
+# be not much longer than the specified max_bytes, though the exact
+# shortfall or overrun may vary.
+def truncate_text_to_approximate_size(s, max_bytes, options = {})
+  front_weight = options.fetch(:front_weight, 0.5)
+  if front_weight < 0.0 || front_weight > 1.0
+    raise "opts[:front_weight] must be between 0.0 and 1.0"
+  end
+  return s if s.bytesize <= max_bytes
+
+  glue = "\n[...snip...]\n"
+  max_bytes_in = [max_bytes - glue.bytesize, 1].max
+  if ruby_has_encoding?
+    bytes = s.dup.force_encoding("BINARY")
+    glue_bytes = glue.encode("BINARY")
+  else
+    bytes = s
+    glue_bytes = glue
+  end
+  n_front_bytes = (max_bytes_in * front_weight).floor
+  n_back_bytes = max_bytes_in - n_front_bytes
+  if n_front_bytes == 0
+    front = bytes[1..0]
+    back = bytes[-max_bytes_in..-1]
+  elsif n_back_bytes == 0
+    front = bytes[0..(max_bytes_in - 1)]
+    back = bytes[1..0]
+  else
+    front = bytes[0..(n_front_bytes - 1)]
+    back = bytes[-n_back_bytes..-1]
+  end
+  out = front + glue_bytes + back
+  if ruby_has_encoding?
+    out.force_encoding("UTF-8")
+    out.encode!("UTF-16", :invalid => :replace)
+    out.encode!("UTF-8")
+  end
+  out
 end
