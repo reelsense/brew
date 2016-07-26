@@ -18,6 +18,7 @@ class IntegrationCommandTests < Homebrew::TestCase
       HOMEBREW_CACHE.children,
       HOMEBREW_LOCK_DIR.children,
       HOMEBREW_LOGS.children,
+      HOMEBREW_TEMP.children,
       HOMEBREW_PREFIX/"bin",
       HOMEBREW_PREFIX/"share",
       HOMEBREW_PREFIX/"opt",
@@ -688,5 +689,52 @@ class IntegrationCommandTests < Homebrew::TestCase
 
     cmd("install", "testball")
     assert_match "Would remove", cmd("unlink", "--dry-run", "testball")
+  end
+
+  def test_irb
+    assert_match "'v8'.f # => instance of the v8 formula",
+      cmd("irb", "--examples")
+
+    setup_test_formula "testball"
+
+    irb_test = HOMEBREW_TEMP/"irb-test.rb"
+    irb_test.write <<-EOS.undent
+      "testball".f
+      :testball.f
+      exit
+    EOS
+
+    assert_match "Interactive Homebrew Shell", cmd("irb", irb_test)
+  end
+
+  def test_pull_offline
+    assert_match "You meant `git pull --rebase`.", cmd_fail("pull", "--rebase")
+    assert_match "This command requires at least one argument", cmd_fail("pull")
+    assert_match "Not a GitHub pull request or commit",
+      cmd_fail("pull", "0")
+  end
+
+  def test_pull
+    skip "Requires network connection" if ENV["HOMEBREW_NO_GITHUB_API"]
+
+    core_tap = CoreTap.new
+    core_tap.path.cd do
+      shutup do
+        system "git", "init"
+        system "git", "checkout", "-b", "new-branch"
+      end
+    end
+
+    assert_match "Testing URLs require `--bottle`!",
+      cmd_fail("pull", "http://bot.brew.sh/job/Homebrew\%20Testing/1028/")
+    assert_match "Current branch is new-branch",
+      cmd_fail("pull", "1")
+    assert_match "No changed formulae found to bump",
+      cmd_fail("pull", "--bump", "8")
+    assert_match "Can only bump one changed formula",
+      cmd_fail("pull", "--bump",
+        "https://api.github.com/repos/Homebrew/homebrew-core/pulls/122")
+    assert_match "Patch failed to apply",
+      cmd_fail("pull", "https://github.com/Homebrew/homebrew-core/pull/1")
   end
 end

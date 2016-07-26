@@ -287,6 +287,14 @@ class Formula
     active_spec.version
   end
 
+  def update_head_version
+    return unless head?
+    return unless head.downloader.is_a?(VCSDownloadStrategy)
+    return unless head.downloader.cached_location.exist?
+
+    head.version.update_commit(head.downloader.last_commit)
+  end
+
   # The {PkgVersion} for this formula with {version} and {#revision} information.
   def pkg_version
     PkgVersion.new(version, revision)
@@ -405,11 +413,23 @@ class Formula
     Pathname.new("#{HOMEBREW_LIBRARY}/LinkedKegs/#{name}")
   end
 
+  def latest_head_prefix
+    head_versions = installed_prefixes.map do |pn|
+      pn_pkgversion = PkgVersion.parse(pn.basename.to_s)
+      pn_pkgversion if pn_pkgversion.head?
+    end.compact
+
+    latest_head_version = head_versions.max_by do |pn_pkgversion|
+      [Tab.for_keg(prefix(pn_pkgversion)).source_modified_time, pn_pkgversion.revision]
+    end
+    prefix(latest_head_version) if latest_head_version
+  end
+
   # The latest prefix for this formula. Checks for {#head}, then {#devel}
   # and then {#stable}'s {#prefix}
   # @private
   def installed_prefix
-    if head && (head_prefix = prefix(PkgVersion.new(head.version, revision))).directory?
+    if head && (head_prefix = latest_head_prefix) && head_prefix.directory?
       head_prefix
     elsif devel && (devel_prefix = prefix(PkgVersion.new(devel.version, revision))).directory?
       devel_prefix
@@ -814,14 +834,6 @@ class Formula
   # @private
   def post_install_defined?
     method(:post_install).owner == self.class
-  end
-
-  # @private
-  def run_post_install
-    build, self.build = self.build, Tab.for_formula(self)
-    post_install
-  ensure
-    self.build = build
   end
 
   # Tell the user about any caveats regarding this package.
@@ -1306,7 +1318,7 @@ class Formula
       }
     end
 
-    hsh["installed"] = hsh["installed"].sort_by { |i| Version.new(i["version"]) }
+    hsh["installed"] = hsh["installed"].sort_by { |i| Version.create(i["version"]) }
 
     hsh
   end
@@ -1326,7 +1338,6 @@ class Formula
     old_home = ENV["HOME"]
     old_curl_home = ENV["CURL_HOME"]
     ENV["CURL_HOME"] = old_curl_home || old_home
-    build, self.build = self.build, Tab.for_formula(self)
     mktemp("#{name}-test") do |staging|
       staging.retain! if ARGV.keep_tmp?
       @testpath = staging.tmpdir
@@ -1341,7 +1352,6 @@ class Formula
     end
   ensure
     @testpath = nil
-    self.build = build
     ENV["HOME"] = old_home
     ENV["CURL_HOME"] = old_curl_home
   end
@@ -1501,7 +1511,12 @@ class Formula
   def eligible_kegs_for_cleanup
     eligible_for_cleanup = []
     if installed?
-      eligible_kegs = installed_kegs.select { |k| pkg_version > k.version }
+      eligible_kegs = if head? && (head_prefix = latest_head_prefix)
+        installed_kegs - [Keg.new(head_prefix)]
+      else
+        installed_kegs.select { |k| pkg_version > k.version }
+      end
+
       if eligible_kegs.any?
         eligible_kegs.each do |keg|
           if keg.linked?

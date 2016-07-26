@@ -659,15 +659,20 @@ module Homebrew
 
       if @tap.nil?
         tests_args = []
+        tests_args_coverage = []
         if RUBY_TWO
           tests_args << "--official-cmd-taps"
-          tests_args << "--coverage" if ENV["TRAVIS"]
+          tests_args_coverage << "--coverage" if ENV["TRAVIS"]
         end
         test "brew", "tests", *tests_args
         test "brew", "tests", "--generic", "--only=integration_cmds",
                               *tests_args
-        test "brew", "tests", "--no-compat"
+        test "brew", "tests", "--no-compat", *tests_args_coverage
         test "brew", "readall", "--syntax"
+        # test update from origin/master to current commit.
+        test "brew", "update-test"
+        # test no-op update from current commit (to current commit, a no-op).
+        test "brew", "update-test", "--commit=HEAD"
       else
         test "brew", "readall", "--aliases", @tap.name
       end

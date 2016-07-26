@@ -27,6 +27,11 @@ module OS
         end
       end
 
+      def prerelease?
+        # TODO: bump to version >= "8.1" after Xcode 8.0 is stable.
+        version > "7.3.1"
+      end
+
       def outdated?
         version < latest_version
       end
@@ -130,11 +135,11 @@ module OS
       end
 
       def provides_gcc?
-        version < "4.3"
+        installed? && version < "4.3"
       end
 
       def provides_cvs?
-        version < "5.0"
+        installed? && version < "5.0"
       end
 
       def default_prefix?
@@ -163,7 +168,7 @@ module OS
 
       def latest_version
         case MacOS.version
-        when "10.12" then "800.0.31"
+        when "10.12" then "800.0.33.1"
         when "10.11" then "703.0.31"
         when "10.10" then "700.1.81"
         when "10.9"  then "600.0.57"
