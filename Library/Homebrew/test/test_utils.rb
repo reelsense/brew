@@ -161,13 +161,13 @@ class UtilTests < Homebrew::TestCase
   end
 
   def test_popen_read
-    out = Utils.popen_read("/bin/sh", "-c", "echo success").chomp
+    out = Utils.popen_read("sh", "-c", "echo success").chomp
     assert_equal "success", out
     assert_predicate $?, :success?
   end
 
   def test_popen_read_with_block
-    out = Utils.popen_read("/bin/sh", "-c", "echo success") do |pipe|
+    out = Utils.popen_read("sh", "-c", "echo success") do |pipe|
       pipe.read.chomp
     end
     assert_equal "success", out
@@ -175,7 +175,7 @@ class UtilTests < Homebrew::TestCase
   end
 
   def test_popen_write_with_block
-    Utils.popen_write("/usr/bin/grep", "-q", "success") do |pipe|
+    Utils.popen_write("grep", "-q", "success") do |pipe|
       pipe.write("success\n")
     end
     assert_predicate $?, :success?
@@ -222,5 +222,18 @@ class UtilTests < Homebrew::TestCase
     assert_equal glue + ("x" * (n - glue.length)), s
     s = truncate_text_to_approximate_size(long_s, n, :front_weight => 1.0)
     assert_equal(("x" * (n - glue.length)) + glue, s)
+  end
+
+  def test_odeprecated
+    ARGV.stubs(:homebrew_developer?).returns false
+    e = assert_raises(FormulaMethodDeprecatedError) do
+      odeprecated("method", "replacement",
+        :caller => ["#{HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core/"],
+        :die => true)
+    end
+    assert_match "method", e.message
+    assert_match "replacement", e.message
+    assert_match "homebrew/homebrew-core", e.message
+    assert_match "homebrew/core", e.message
   end
 end
