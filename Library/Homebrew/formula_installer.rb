@@ -251,9 +251,22 @@ class FormulaInstaller
       begin
         f = Formulary.factory(c.name)
       rescue TapFormulaUnavailableError
-        # If the formula name is in full-qualified name. Let's silently
+        # If the formula name is a fully-qualified name let's silently
         # ignore it as we don't care about things used in taps that aren't
         # currently tapped.
+        false
+      rescue FormulaUnavailableError => e
+        # If the formula name doesn't exist any more then complain but don't
+        # stop installation from continuing.
+        opoo <<-EOS.undent
+          #{formula}: #{e.message}
+          'conflicts_with \"#{c.name}\"' should be removed from #{formula.path.basename}.
+        EOS
+        if ARGV.homebrew_developer?
+          raise
+        else
+          $stderr.puts "Please report this to the #{formula.tap} tap!"
+        end
         false
       else
         f.linked_keg.exist? && f.opt_prefix.exist?
@@ -294,6 +307,7 @@ class FormulaInstaller
     fatals = []
 
     req_map.each_pair do |dependent, reqs|
+      next if dependent.installed?
       reqs.each do |req|
         puts "#{dependent}: #{req.message}"
         fatals << req if req.fatal?
