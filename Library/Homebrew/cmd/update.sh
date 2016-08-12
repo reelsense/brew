@@ -389,9 +389,9 @@ EOS
     fi
 
     TAP_VAR="$(repo_var "$DIR")"
-    UPSTREAM_BRANCH="$(upstream_branch)"
-    declare UPSTREAM_BRANCH"$TAP_VAR"="$UPSTREAM_BRANCH"
-    declare PREFETCH_REVISION"$TAP_VAR"="$(git rev-parse -q --verify refs/remotes/origin/"$UPSTREAM_BRANCH")"
+    UPSTREAM_BRANCH_DIR="$(upstream_branch)"
+    declare UPSTREAM_BRANCH"$TAP_VAR"="$UPSTREAM_BRANCH_DIR"
+    declare PREFETCH_REVISION"$TAP_VAR"="$(git rev-parse -q --verify refs/remotes/origin/"$UPSTREAM_BRANCH_DIR")"
 
     [[ -n "$SKIP_FETCH_BREW_REPOSITORY" && "$DIR" = "$HOMEBREW_REPOSITORY" ]] && continue
     [[ -n "$SKIP_FETCH_CORE_REPOSITORY" && "$DIR" = "$HOMEBREW_LIBRARY/Taps/homebrew/homebrew-core" ]] && continue
@@ -420,7 +420,7 @@ EOS
       then
         UPSTREAM_REPOSITORY="${UPSTREAM_REPOSITORY_URL#https://github.com/}"
         UPSTREAM_REPOSITORY="${UPSTREAM_REPOSITORY%.git}"
-        UPSTREAM_BRANCH_LOCAL_SHA="$(git rev-parse "refs/remotes/origin/$UPSTREAM_BRANCH")"
+        UPSTREAM_BRANCH_LOCAL_SHA="$(git rev-parse "refs/remotes/origin/$UPSTREAM_BRANCH_DIR")"
         # Only try to `git fetch` when the upstream branch is at a different SHA
         # (so the API does not return 304: unmodified).
         UPSTREAM_SHA_HTTP_CODE="$("$HOMEBREW_CURL" --silent --max-time 3 \
@@ -428,7 +428,7 @@ EOS
            --user-agent "$HOMEBREW_USER_AGENT_CURL" \
            --header "Accept: application/vnd.github.v3.sha" \
            --header "If-None-Match: \"$UPSTREAM_BRANCH_LOCAL_SHA\"" \
-           "https://api.github.com/repos/$UPSTREAM_REPOSITORY/commits/$UPSTREAM_BRANCH")"
+           "https://api.github.com/repos/$UPSTREAM_REPOSITORY/commits/$UPSTREAM_BRANCH_DIR")"
         # Touch FETCH_HEAD to confirm we've checked for an update.
         [[ -f "$DIR/.git/FETCH_HEAD" ]] && touch "$DIR/.git/FETCH_HEAD"
         [[ "$UPSTREAM_SHA_HTTP_CODE" = "304" ]] && exit
@@ -446,10 +446,10 @@ EOS
       if [[ -n "$HOMEBREW_UPDATE_PREINSTALL" ]]
       then
         git fetch --force "${QUIET_ARGS[@]}" origin \
-          "refs/heads/$UPSTREAM_BRANCH:refs/remotes/origin/$UPSTREAM_BRANCH" 2>/dev/null
+          "refs/heads/$UPSTREAM_BRANCH_DIR:refs/remotes/origin/$UPSTREAM_BRANCH_DIR" 2>/dev/null
       else
         if ! git fetch --force "${QUIET_ARGS[@]}" origin \
-          "refs/heads/$UPSTREAM_BRANCH:refs/remotes/origin/$UPSTREAM_BRANCH"
+          "refs/heads/$UPSTREAM_BRANCH_DIR:refs/remotes/origin/$UPSTREAM_BRANCH_DIR"
         then
           echo "Fetching $DIR failed!" >>"$update_failed_file"
         fi
@@ -479,11 +479,13 @@ EOS
 
     PREFETCH_REVISION_VAR="PREFETCH_REVISION$TAP_VAR"
     PREFETCH_REVISION="${!PREFETCH_REVISION_VAR}"
+    POSTFETCH_REVISION="$(git rev-parse -q --verify refs/remotes/origin/"$UPSTREAM_BRANCH")"
 
     if [[ -n "$HOMEBREW_SIMULATE_FROM_CURRENT_BRANCH" ]]
     then
       simulate_from_current_branch "$DIR" "$TAP_VAR" "$UPSTREAM_BRANCH" "$CURRENT_REVISION"
-    elif [[ "$PREFETCH_REVISION" = "$CURRENT_REVISION" ]]
+    elif [[ "$PREFETCH_REVISION" = "$POSTFETCH_REVISION" ]] &&
+         [[ "$CURRENT_REVISION" = "$POSTFETCH_REVISION" ]]
     then
       export HOMEBREW_UPDATE_BEFORE"$TAP_VAR"="$CURRENT_REVISION"
       export HOMEBREW_UPDATE_AFTER"$TAP_VAR"="$CURRENT_REVISION"
