@@ -264,7 +264,9 @@ into <code>/Applications</code>, allowing for easier access.</p>
 <p>If provided, <code>--local</code> will symlink them into the user's <code>~/Applications</code>
 directory instead of the system directory.</p></dd>
 <dt><code>list</code>, <code>ls</code> [<code>--full-name</code>]</dt><dd><p>List all installed formulae. If <code>--full-name</code> is passed, print formulae with
-full-qualified names.</p></dd>
+fully-qualified names.
+If <code>--full-name</code> is not passed any other options (e.g. <code>-t</code>) are passed to
+<code>ls</code> which produces the actual output.</p></dd>
 <dt><code>list</code>, <code>ls</code> <code>--unbrewed</code></dt><dd><p>List all files in the Homebrew prefix not installed by Homebrew.</p></dd>
 <dt><code>list</code>, <code>ls</code> [<code>--versions</code> [<code>--multiple</code>]] [<code>--pinned</code>] [<var>formulae</var>]</dt><dd><p>List the installed files for <var>formulae</var>. Combined with <code>--verbose</code>, recursively
 list the contents of all subdirectories in each <var>formula</var>'s keg.</p>
@@ -561,6 +563,8 @@ several formulae in the same directory.</p>
 <p><em>Note:</em> <code>brew edit</code> will open all of Homebrew as discontinuous files and
 directories. TextMate can handle this correctly in project mode, but many
 editors will do strange things in this case.</p></dd>
+<dt><code>HOMEBREW_FORCE_VENDOR_RUBY</code></dt><dd><p>If set, Homebrew will always use its vendored, relocatable Ruby 2.0 version
+even if the system version of Ruby is >=2.0.</p></dd>
 <dt><code>HOMEBREW_GITHUB_API_TOKEN</code></dt><dd><p>A personal access token for the GitHub API, which you can create at
 <a href="https://github.com/settings/tokens" data-bare-link="true">https://github.com/settings/tokens</a>. If set, GitHub will allow you a
 greater number of API requests. See
