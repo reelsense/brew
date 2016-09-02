@@ -1611,6 +1611,8 @@ class Formula
         eligible_kegs.each do |keg|
           if keg.linked?
             opoo "Skipping (old) #{keg} due to it being linked"
+          elsif pinned? && keg == Keg.new(@pin.path.resolved_path)
+            opoo "Skipping (old) #{keg} due to it being pinned"
           else
             eligible_for_cleanup << keg
           end
@@ -2062,7 +2064,7 @@ class Formula
     # <pre>plist_options :manual => "foo"</pre>
     #
     # Or perhaps you'd like to give the user a choice? Ooh fancy.
-    # <pre>plist_options :startup => "true", :manual => "foo start"</pre>
+    # <pre>plist_options :startup => true, :manual => "foo start"</pre>
     def plist_options(options)
       @plist_startup = options[:startup]
       @plist_manual = options[:manual]
