@@ -688,13 +688,15 @@ module Homebrew
         git "reset", "--hard", "origin/master"
       end
       git "clean", "-ffdx"
-      unless @repository == HOMEBREW_REPOSITORY
-        HOMEBREW_REPOSITORY.cd do
+
+      Pathname.glob("{#{HOMEBREW_REPOSITORY},#{HOMEBREW_LIBRARY}/Taps/*/*}").each do |git_repo|
+        next if @repository == git_repo
+        git_repo.cd do
           safe_system "git", "checkout", "-f", "master"
           safe_system "git", "reset", "--hard", "origin/master"
-          safe_system "git", "clean", "-ffdx", "--exclude=/Library/Taps/"
         end
       end
+
       pr_locks = "#{@repository}/.git/refs/remotes/*/pr/*/*.lock"
       Dir.glob(pr_locks) { |lock| FileUtils.rm_rf lock }
     end
@@ -715,13 +717,16 @@ module Homebrew
         test "brew", "cleanup", "--prune=7"
         git "gc", "--auto"
         test "git", "clean", "-ffdx"
-        unless @repository == HOMEBREW_REPOSITORY
-          HOMEBREW_REPOSITORY.cd do
-            safe_system "git", "reset", "--hard"
-            safe_system "git", "clean", "-ffdx", "--exclude=/Library/Taps/"
+
+        Tap.names.each { |s| safe_system "brew", "untap", s if s != "homebrew/core" }
+
+        Pathname.glob("{#{HOMEBREW_REPOSITORY},#{HOMEBREW_LIBRARY}/Taps/*/*}").each do |git_repo|
+          next if @repository == git_repo
+          git_repo.cd do
+            safe_system "git", "checkout", "-f", "master"
+            safe_system "git", "reset", "--hard", "origin/master"
           end
         end
-        Tap.names.each { |s| safe_system "brew", "untap", s if s != "homebrew/core" }
 
         if ARGV.include? "--local"
           FileUtils.rm_rf ENV["HOMEBREW_HOME"]
@@ -850,7 +855,11 @@ module Homebrew
       safe_system "brew", "pull", "--clean", pull_pr
     end
 
-    system "brew", "bottle", "--merge", "--write", *json_files
+    if ENV["UPSTREAM_BOTTLE_KEEP_OLD"]
+      system "brew", "bottle", "--merge", "--write", "--keep-old", *json_files
+    else
+      system "brew", "bottle", "--merge", "--write", *json_files
+    end
 
     remote = "git@github.com:BrewTestBot/homebrew-#{tap.repo}.git"
     git_tag = pr ? "pr-#{pr}" : "testing-#{number}"
