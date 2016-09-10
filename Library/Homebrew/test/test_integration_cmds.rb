@@ -273,10 +273,8 @@ class IntegrationCommandTests < Homebrew::TestCase
                  cmd("help", "cat")) # Internal command (documented, Ruby).
     assert_match(/^brew update /,
                  cmd("help", "update")) # Internal command (documented, Shell).
-    if ARGV.homebrew_developer?
-      assert_match "Example usage:\n",
-                   cmd("help", "test-bot") # Internal developer command (undocumented).
-    end
+    assert_match(/^brew test-bot /,
+                 cmd("help", "test-bot")) # Internal developer command (documented, Ruby).
   end
 
   def test_config
@@ -529,6 +527,18 @@ class IntegrationCommandTests < Homebrew::TestCase
     assert_match "Reinstalling testball with --with-foo",
       cmd("reinstall", "testball")
     assert foo_dir.exist?
+  end
+
+  def test_reinstall_pinned
+    setup_test_formula "testball"
+
+    HOMEBREW_CELLAR.join("testball/0.1").mkpath
+    HOMEBREW_LIBRARY.join("PinnedKegs").mkpath
+    FileUtils.ln_s HOMEBREW_CELLAR.join("testball/0.1"), HOMEBREW_LIBRARY.join("PinnedKegs/testball")
+
+    assert_match "testball is pinned. You must unpin it to reinstall.", cmd("reinstall", "testball")
+
+    HOMEBREW_LIBRARY.join("PinnedKegs").rmtree
   end
 
   def test_home

@@ -159,7 +159,7 @@ reset_on_interrupt() {
     git reset --hard "$INITIAL_REVISION" "${QUIET_ARGS[@]}"
   fi
 
-  if [[ -n "$HOMEBREW_DEVELOPER" ]]
+  if [[ -n "$HOMEBREW_NO_UPDATE_CLEANUP" ]]
   then
     pop_stash
   else
@@ -242,6 +242,14 @@ EOS
   INITIAL_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null)"
   if [[ "$INITIAL_BRANCH" != "$UPSTREAM_BRANCH" && -n "$INITIAL_BRANCH" ]]
   then
+
+    if [[ -z "$HOMEBREW_NO_UPDATE_CLEANUP" ]]
+    then
+      echo "Checking out $UPSTREAM_BRANCH in $DIR..."
+      echo "To checkout $INITIAL_BRANCH in $DIR run:"
+      echo "  'cd $DIR && git checkout $INITIAL_BRANCH"
+    fi
+
     # Recreate and check out `#{upstream_branch}` if unable to fast-forward
     # it to `origin/#{@upstream_branch}`. Otherwise, just check it out.
     if git merge-base --is-ancestor "$UPSTREAM_BRANCH" "origin/$UPSTREAM_BRANCH" &>/dev/null
@@ -278,7 +286,7 @@ EOS
 
   trap '' SIGINT
 
-  if [[ -n "$HOMEBREW_DEVELOPER" ]]
+  if [[ -n "$HOMEBREW_NO_UPDATE_CLEANUP" ]]
   then
     if [[ "$INITIAL_BRANCH" != "$UPSTREAM_BRANCH" && -n "$INITIAL_BRANCH" ]]
     then
@@ -327,18 +335,27 @@ EOS
     set -x
   fi
 
+  if [[ -z "$HOMEBREW_UPDATE_CLEANUP" ]]
+  then
+    if [[ -n "$HOMEBREW_DEVELOPER" || -n "$HOMEBREW_DEV_CMD_RUN" ]]
+    then
+      export HOMEBREW_NO_UPDATE_CLEANUP="1"
+    fi
+  fi
+
   if [[ -z "$HOMEBREW_AUTO_UPDATE_SECS" ]]
   then
     HOMEBREW_AUTO_UPDATE_SECS="60"
   fi
 
   # check permissions
-  if [[ "$HOMEBREW_PREFIX" = "/usr/local" && ! -w /usr/local ]]
+  if [[ -e "$HOMEBREW_CELLAR" && ! -w "$HOMEBREW_CELLAR" ]]
   then
     odie <<EOS
-/usr/local is not writable. You should change the ownership
-and permissions of /usr/local back to your user account:
-  sudo chown -R \$(whoami) /usr/local
+$HOMEBREW_CELLAR is not writable. You should change the
+ownership and permissions of $HOMEBREW_CELLAR back to your
+user account:
+  sudo chown -R \$(whoami) $HOMEBREW_CELLAR
 EOS
   fi
 
