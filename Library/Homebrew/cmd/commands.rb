@@ -17,11 +17,9 @@ module Homebrew
       puts_columns internal_commands
 
       # Find commands in Homebrew/dev-cmd
-      if ARGV.homebrew_developer?
-        puts
-        puts "Built-in developer commands"
-        puts_columns internal_developer_commands
-      end
+      puts
+      puts "Built-in developer commands"
+      puts_columns internal_developer_commands
 
       # Find commands in the path
       unless (exts = external_commands).empty?
@@ -41,22 +39,20 @@ module Homebrew
   end
 
   def external_commands
-    paths.reduce([]) do |cmds, path|
+    paths.each_with_object([]) do |path, cmds|
       Dir["#{path}/brew-*"].each do |file|
         next unless File.executable?(file)
         cmd = File.basename(file, ".rb")[5..-1]
         cmds << cmd unless cmd.include?(".")
       end
-      cmds
     end.sort
   end
 
   private
 
   def find_internal_commands(directory)
-    directory.children.reduce([]) do |cmds, f|
+    directory.children.each_with_object([]) do |f, cmds|
       cmds << f.basename.to_s.sub(/\.(?:rb|sh)$/, "") if f.file?
-      cmds
     end
   end
 end
