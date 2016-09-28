@@ -34,7 +34,7 @@
 #:
 #     Hidden developer option:
 #     If `--force-bottle` is passed, install from a bottle if it exists
-#    for the current version of OS X, even if custom options are given.
+#    for the current version of macOS, even if custom options are given.
 #
 #:    If `--devel` is passed, and <formula> defines it, install the development version.
 #:
@@ -133,9 +133,14 @@ module Homebrew
           raise "No devel block is defined for #{f.full_name}"
         end
 
-        if f.installed?
-          msg = "#{f.full_name}-#{f.installed_version} already installed"
-          msg << ", it's just not linked" unless f.linked_keg.symlink? || f.keg_only?
+        current = f if f.installed?
+        current ||= f.old_installed_formulae.first
+
+        if current
+          msg = "#{current.full_name}-#{current.installed_version} already installed"
+          unless current.linked_keg.symlink? || current.keg_only?
+            msg << ", it's just not linked"
+          end
           opoo msg
         elsif f.migration_needed? && !ARGV.force?
           # Check if the formula we try to install is the same as installed
@@ -198,13 +203,12 @@ module Homebrew
         # If they haven't updated in 48 hours (172800 seconds), that
         # might explain the error
         master = HOMEBREW_REPOSITORY/".git/refs/heads/master"
-        if master.exist? && (Time.now.to_i - File.mtime(master).to_i) > 172800
-          ohai "You haven't updated Homebrew in a while."
-          puts <<-EOS.undent
-            A formula for #{e.name} might have been added recently.
-            Run `brew update` to get the latest Homebrew updates!
-          EOS
-        end
+        return unless master.exist? && (Time.now.to_i - File.mtime(master).to_i) > 172800
+        ohai "You haven't updated Homebrew in a while."
+        puts <<-EOS.undent
+          A formula for #{e.name} might have been added recently.
+          Run `brew update` to get the latest Homebrew updates!
+        EOS
       end
     end
   end
@@ -240,11 +244,11 @@ module Homebrew
   end
 
   def check_macports
-    unless MacOS.macports_or_fink.empty?
-      opoo "It appears you have MacPorts or Fink installed."
-      puts "Software installed with other package managers causes known problems for"
-      puts "Homebrew. If a formula fails to build, uninstall MacPorts/Fink and try again."
-    end
+    return if MacOS.macports_or_fink.empty?
+
+    opoo "It appears you have MacPorts or Fink installed."
+    puts "Software installed with other package managers causes known problems for"
+    puts "Homebrew. If a formula fails to build, uninstall MacPorts/Fink and try again."
   end
 
   def check_cellar

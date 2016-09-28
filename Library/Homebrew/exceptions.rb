@@ -309,7 +309,7 @@ class BuildError < RuntimeError
   end
 
   def fetch_issues
-    GitHub.issues_for_formula(formula.name, :tap => formula.tap)
+    GitHub.issues_for_formula(formula.name, tap: formula.tap)
   rescue GitHub::RateLimitExceededError => e
     opoo e.message
     []
@@ -356,8 +356,8 @@ class BuildError < RuntimeError
     end
 
     require "diagnostic"
-    unsupported_osx = Homebrew::Diagnostic::Checks.new.check_for_unsupported_osx
-    opoo unsupported_osx if unsupported_osx
+    unsupported_macos = Homebrew::Diagnostic::Checks.new.check_for_unsupported_macos
+    opoo unsupported_macos if unsupported_macos
   end
 end
 
@@ -482,7 +482,7 @@ class DuplicateResourceError < ArgumentError
 end
 
 # raised when a single patch file is not found and apply hasn't been specified
-class MissingApplyError < RuntimeError ; end
+class MissingApplyError < RuntimeError; end
 
 class BottleVersionMismatchError < RuntimeError
   def initialize(bottle_file, bottle_version, formula, formula_version)

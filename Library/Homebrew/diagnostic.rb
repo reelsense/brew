@@ -39,15 +39,11 @@ module Homebrew
         vols = get_mounts path
 
         # no volume found
-        if vols.empty?
-          return -1
-        end
+        return -1 if vols.empty?
 
         vol_index = @volumes.index(vols[0])
         # volume not found in volume list
-        if vol_index.nil?
-          return -1
-        end
+        return -1 if vol_index.nil?
         vol_index
       end
 
@@ -82,8 +78,8 @@ module Homebrew
         end
       end
 
-      def inject_file_list(list, str)
-        list.inject(str) { |s, f| s << "    #{f}\n" }
+      def inject_file_list(list, string)
+        list.inject(string) { |a, e| a << "    #{e}\n" }
       end
       ############# END HELPERS
 
@@ -308,8 +304,7 @@ module Homebrew
       def check_access_prefix_directories
         not_writable_dirs = []
 
-        extra_dirs = ["lib/pkgconfig", "share/locale", "share/man", "opt"]
-        (Keg::TOP_LEVEL_DIRECTORIES + extra_dirs).each do |dir|
+        Keg::ALL_TOP_LEVEL_DIRECTORIES.each do |dir|
           path = HOMEBREW_PREFIX/dir
           next unless path.exist?
           next if path.writable_real?
@@ -413,11 +408,11 @@ module Homebrew
             unless $seen_prefix_bin
               # only show the doctor message if there are any conflicts
               # rationale: a default install should not trigger any brew doctor messages
-              conflicts = Dir["#{HOMEBREW_PREFIX}/bin/*"].
-                          map { |fn| File.basename fn }.
-                          select { |bn| File.exist? "/usr/bin/#{bn}" }
+              conflicts = Dir["#{HOMEBREW_PREFIX}/bin/*"]
+                          .map { |fn| File.basename fn }
+                          .select { |bn| File.exist? "/usr/bin/#{bn}" }
 
-              if conflicts.size > 0
+              unless conflicts.empty?
                 message = inject_file_list conflicts, <<-EOS.undent
                   /usr/bin occurs before #{HOMEBREW_PREFIX}/bin
                   This means that system-provided programs will be used instead of those
@@ -457,7 +452,7 @@ module Homebrew
 
         # Don't complain about sbin not being in the path if it doesn't exist
         sbin = (HOMEBREW_PREFIX+"sbin")
-        return unless sbin.directory? && sbin.children.length > 0
+        return unless sbin.directory? && !sbin.children.empty?
 
         <<-EOS.undent
           Homebrew's sbin was not found in your PATH but you have installed
@@ -516,7 +511,11 @@ module Homebrew
         return if @found.empty?
 
         # Our gettext formula will be caught by check_linked_keg_only_brews
-        gettext = Formulary.factory("gettext") rescue nil
+        gettext = begin
+          Formulary.factory("gettext")
+        rescue
+          nil
+        end
         homebrew_owned = @found.all? do |path|
           Pathname.new(path).realpath.to_s.start_with? "#{HOMEBREW_CELLAR}/gettext"
         end
@@ -533,7 +532,11 @@ module Homebrew
         find_relative_paths("lib/libiconv.dylib", "include/iconv.h")
         return if @found.empty?
 
-        libiconv = Formulary.factory("libiconv") rescue nil
+        libiconv = begin
+          Formulary.factory("libiconv")
+        rescue
+          nil
+        end
         if libiconv && libiconv.linked_keg.directory?
           unless libiconv.keg_only?
             <<-EOS.undent
@@ -547,7 +550,7 @@ module Homebrew
             Homebrew doesn't provide a libiconv formula, and expects to link against
             the system version in /usr. libiconv in other prefixes can cause
             compile or link failure, especially if compiled with improper
-            architectures. OS X itself never installs anything to /usr/local so
+            architectures. macOS itself never installs anything to /usr/local so
             it was either installed by a user or some other third party software.
 
             tl;dr: delete these files:
@@ -592,7 +595,7 @@ module Homebrew
         EOS
       end
 
-      def check_DYLD_vars
+      def check_dyld_vars
         dyld_vars = ENV.keys.grep(/^DYLD_/)
         return if dyld_vars.empty?
 
@@ -652,7 +655,7 @@ module Homebrew
 
         <<-EOS.undent
           Your Cellar and TEMP directories are on different volumes.
-          OS X won't move relative symlinks across volumes unless the target file already
+          macOS won't move relative symlinks across volumes unless the target file already
           exists. Brews known to be affected by this are Git and Narwhal.
 
           You should set the "HOMEBREW_TEMP" environmental variable to a suitable
@@ -689,7 +692,7 @@ module Homebrew
 
         <<-EOS.undent
           The filesystem on #{case_sensitive_vols.join(",")} appears to be case-sensitive.
-          The default OS X filesystem is case-insensitive. Please report any apparent problems.
+          The default macOS filesystem is case-insensitive. Please report any apparent problems.
         EOS
       end
 
@@ -751,7 +754,7 @@ module Homebrew
               cd #{HOMEBREW_REPOSITORY}
               git remote add origin https://github.com/Homebrew/brew.git
           EOS
-        elsif origin !~ /Homebrew\/brew(\.git)?$/
+        elsif origin !~ %r{Homebrew/brew(\.git)?$}
           <<-EOS.undent
             Suspicious git origin remote found.
 
@@ -807,9 +810,9 @@ module Homebrew
           libexpat.framework
           libcurl.framework
         ]
-        frameworks_found = frameworks_to_check.
-          map { |framework| "/Library/Frameworks/#{framework}" }.
-          select { |framework| File.exist? framework }
+        frameworks_found = frameworks_to_check
+                           .map { |framework| "/Library/Frameworks/#{framework}" }
+                           .select { |framework| File.exist? framework }
         return if frameworks_found.empty?
 
         inject_file_list frameworks_found, <<-EOS.undent
@@ -886,11 +889,10 @@ module Homebrew
       def check_for_old_homebrew_share_python_in_path
         message = ""
         ["", "3"].map do |suffix|
-          if paths.include?((HOMEBREW_PREFIX/"share/python#{suffix}").to_s)
-            message += <<-EOS.undent
+          next unless paths.include?((HOMEBREW_PREFIX/"share/python#{suffix}").to_s)
+          message += <<-EOS.undent
               #{HOMEBREW_PREFIX}/share/python#{suffix} is not needed in PATH.
-            EOS
-          end
+          EOS
         end
         unless message.empty?
           message += <<-EOS.undent
@@ -959,34 +961,9 @@ module Homebrew
         EOS
       end
 
-      def check_for_outdated_homebrew
-        return unless Utils.git_available?
-
-        timestamp = if File.directory?("#{HOMEBREW_REPOSITORY}/.git")
-          HOMEBREW_REPOSITORY.cd { `git log -1 --format="%ct" HEAD --`.to_i }
-        else
-          HOMEBREW_LIBRARY.mtime.to_i
-        end
-        return if Time.now.to_i - timestamp <= 60 * 60 * 24 # 24 hours
-
-        if File.directory?("#{HOMEBREW_REPOSITORY}/.git")
-          HOMEBREW_REPOSITORY.cd do
-            local = `git rev-parse -q --verify refs/remotes/origin/master`.chomp
-            remote = /^([a-f0-9]{40})/.match(`git ls-remote origin refs/heads/master 2>/dev/null`)
-            return if remote.nil? || local == remote[0]
-          end
-        end
-
-        <<-EOS.undent
-          Your Homebrew is outdated.
-          You haven't updated for at least 24 hours. This is a long time in brewland!
-          To update Homebrew, run `brew update`.
-        EOS
-      end
-
       def check_for_unlinked_but_not_keg_only
         unlinked = Formula.racks.reject do |rack|
-          if !(HOMEBREW_REPOSITORY/"Library/LinkedKegs"/rack.basename).directory?
+          if !(HOMEBREW_LINKED_KEGS/rack.basename).directory?
             begin
               Formulary.from_rack(rack).keg_only?
             rescue FormulaUnavailableError, TapFormulaAmbiguityError, TapFormulaWithOldnameAmbiguityError

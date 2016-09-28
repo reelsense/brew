@@ -19,10 +19,10 @@ require "requirements/emacs_requirement"
 class XcodeRequirement < Requirement
   fatal true
 
-  satisfy(:build_env => false) { xcode_installed_version }
+  satisfy(build_env: false) { xcode_installed_version }
 
   def initialize(tags)
-    @version = tags.find { |t| tags.delete(t) if /(\d\.)+\d/ === t }
+    @version = tags.find { |tag| tags.delete(tag) if tag =~ /(\d\.)+\d/ }
     super
   end
 
@@ -39,11 +39,11 @@ class XcodeRequirement < Requirement
       Installing just the Command Line Tools is not sufficient.
     EOS
     if MacOS.version >= :lion
-      message += <<-EOS.undent
+      message + <<-EOS.undent
         Xcode can be installed from the App Store.
       EOS
     else
-      message += <<-EOS.undent
+      message + <<-EOS.undent
         Xcode can be installed from https://developer.apple.com/xcode/downloads/
       EOS
     end
@@ -102,7 +102,7 @@ class ArchRequirement < Requirement
     super
   end
 
-  satisfy(:build_env => false) do
+  satisfy(build_env: false) do
     case @arch
     when :x86_64 then MacOS.prefer_64_bit?
     when :intel, :ppc then Hardware::CPU.type == @arch

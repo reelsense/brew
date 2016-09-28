@@ -38,7 +38,7 @@ setup-analytics() {
     if [[ -n "$HOMEBREW_LINUX" ]]
     then
       HOMEBREW_ANALYTICS_USER_UUID="$(tr a-f A-F </proc/sys/kernel/random/uuid)"
-    elif [[ -n "$HOMEBREW_OSX" ]]
+    elif [[ -n "$HOMEBREW_MACOS" ]]
     then
       HOMEBREW_ANALYTICS_USER_UUID="$(/usr/bin/uuidgen)"
     else
@@ -104,7 +104,7 @@ report-analytics-screenview-command() {
   )
 
   # Send analytics. Don't send or store any personally identifiable information.
-  # https://github.com/Homebrew/brew/blob/master/share/doc/homebrew/Analytics.md
+  # https://github.com/Homebrew/brew/blob/master/docs/Analytics.md
   # https://developers.google.com/analytics/devguides/collection/protocol/v1/devguide#screenView
   # https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
   if [[ -z "$HOMEBREW_ANALYTICS_DEBUG" ]]

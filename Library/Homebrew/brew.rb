@@ -14,7 +14,7 @@ $:.unshift(HOMEBREW_LIBRARY_PATH.to_s)
 require "global"
 
 if ARGV == %w[--version] || ARGV == %w[-v]
-  puts "Homebrew #{Homebrew.homebrew_version_string}"
+  puts "Homebrew #{HOMEBREW_VERSION}"
   puts "Homebrew/homebrew-core #{Homebrew.core_tap_version_string}"
   exit 0
 end
@@ -37,9 +37,9 @@ begin
   cmd = nil
 
   ARGV.dup.each_with_index do |arg, i|
-    if help_flag && cmd
-      break
-    elsif help_flag_list.include?(arg)
+    break if help_flag && cmd
+
+    if help_flag_list.include?(arg)
       # Option-style help: Both `--help <cmd>` and `<cmd> --help` are fine.
       help_flag = true
     elsif arg == "help" && !cmd
@@ -83,9 +83,12 @@ begin
   # arguments themselves.
   if empty_argv || help_flag
     require "cmd/help"
-    Homebrew.help cmd, :empty_argv => empty_argv
+    Homebrew.help cmd, empty_argv: empty_argv
     # `Homebrew.help` never returns, except for external/unknown commands.
   end
+
+  # Migrate LinkedKegs/PinnedKegs if update didn't already do so
+  migrate_legacy_keg_symlinks_if_necessary
 
   # Uninstall old brew-cask if it's still around; we just use the tap now.
   if cmd == "cask" && (HOMEBREW_CELLAR/"brew-cask").exist?
@@ -122,7 +125,7 @@ begin
 
 rescue UsageError => e
   require "cmd/help"
-  Homebrew.help cmd, :usage_error => e.message
+  Homebrew.help cmd, usage_error: e.message
 rescue SystemExit => e
   onoe "Kernel.exit" if ARGV.verbose? && !e.success?
   $stderr.puts e.backtrace if ARGV.debug?
