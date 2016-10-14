@@ -37,6 +37,8 @@ require "cmd/style"
 require "date"
 
 module Homebrew
+  module_function
+
   def audit
     Homebrew.inject_dump_stats!(FormulaAuditor, /^audit_/) if ARGV.switch? "D"
 
@@ -446,6 +448,11 @@ class FormulaAuditor
         problem "Use '--with#{$1}-test' instead of '--#{o.name}'. Migrate '--#{o.name}' with `deprecated_option`."
       end
     end
+
+    return unless @new_formula
+    unless formula.deprecated_options.empty?
+      problem "New formulae should not use `deprecated_option`."
+    end
   end
 
   def audit_desc
@@ -802,6 +809,10 @@ class FormulaAuditor
 
     if line =~ /depends_on :(automake|autoconf|libtool)/
       problem ":#{$1} is deprecated. Usage should be \"#{$1}\""
+    end
+
+    if line =~ /depends_on :apr/
+      problem ":apr is deprecated. Usage should be \"apr-util\""
     end
 
     # Commented-out depends_on

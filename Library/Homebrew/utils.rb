@@ -1,6 +1,7 @@
 require "pathname"
 require "emoji"
 require "exceptions"
+require "utils/formatter"
 require "utils/hash"
 require "utils/json"
 require "utils/inreplace"
@@ -10,85 +11,11 @@ require "utils/git"
 require "utils/analytics"
 require "utils/github"
 require "utils/curl"
-
-class Tty
-  class << self
-    def strip_ansi(string)
-      string.gsub(/\033\[\d+(;\d+)*m/, "")
-    end
-
-    def blue
-      bold 34
-    end
-
-    def white
-      bold 39
-    end
-
-    def magenta
-      bold 35
-    end
-
-    def red
-      underline 31
-    end
-
-    def yellow
-      underline 33
-    end
-
-    def reset
-      escape 0
-    end
-
-    def em
-      underline 39
-    end
-
-    def green
-      bold 32
-    end
-
-    def gray
-      bold 30
-    end
-
-    def highlight
-      bold 39
-    end
-
-    def width
-      `/usr/bin/tput cols`.strip.to_i
-    end
-
-    def truncate(str)
-      w = width
-      w > 10 ? str.to_s[0, w - 4] : str
-    end
-
-    private
-
-    def color(n)
-      escape "0;#{n}"
-    end
-
-    def bold(n)
-      escape "1;#{n}"
-    end
-
-    def underline(n)
-      escape "4;#{n}"
-    end
-
-    def escape(n)
-      "\033[#{n}m" if $stdout.tty?
-    end
-  end
-end
+require "utils/tty"
 
 def ohai(title, *sput)
   title = Tty.truncate(title) if $stdout.tty? && !ARGV.verbose?
-  puts "#{Tty.blue}==>#{Tty.white} #{title}#{Tty.reset}"
+  puts Formatter.headline(title, color: :blue)
   puts sput
 end
 
@@ -96,16 +23,16 @@ def oh1(title, options = {})
   if $stdout.tty? && !ARGV.verbose? && options.fetch(:truncate, :auto) == :auto
     title = Tty.truncate(title)
   end
-  puts "#{Tty.green}==>#{Tty.white} #{title}#{Tty.reset}"
+  puts Formatter.headline(title, color: :green)
 end
 
 # Print a warning (do this rarely)
-def opoo(warning)
-  $stderr.puts "#{Tty.yellow}Warning#{Tty.reset}: #{warning}"
+def opoo(message)
+  $stderr.puts Formatter.warning(message, label: "Warning")
 end
 
-def onoe(error)
-  $stderr.puts "#{Tty.red}Error#{Tty.reset}: #{error}"
+def onoe(message)
+  $stderr.puts Formatter.error(message, label: "Error")
 end
 
 def ofail(error)
@@ -156,7 +83,7 @@ def odeprecated(method, replacement = nil, options = {})
 
   if ARGV.homebrew_developer? || options[:die] ||
      Homebrew.raise_deprecation_exceptions?
-    raise FormulaMethodDeprecatedError, message
+    raise MethodDeprecatedError, message
   else
     opoo "#{message}\n"
   end
@@ -171,9 +98,9 @@ def pretty_installed(f)
   if !$stdout.tty?
     f.to_s
   elsif Emoji.enabled?
-    "#{Tty.highlight}#{f} #{Tty.green}#{Emoji.tick}#{Tty.reset}"
+    "#{Tty.bold}#{f} #{Formatter.success(Emoji.tick)}#{Tty.reset}"
   else
-    "#{Tty.highlight}#{Tty.green}#{f} (installed)#{Tty.reset}"
+    Formatter.success("#{Tty.bold}#{f} (installed)#{Tty.reset}")
   end
 end
 
@@ -181,9 +108,9 @@ def pretty_uninstalled(f)
   if !$stdout.tty?
     f.to_s
   elsif Emoji.enabled?
-    "#{f} #{Tty.red}#{Emoji.cross}#{Tty.reset}"
+    "#{Tty.bold}#{f} #{Formatter.error(Emoji.cross)}#{Tty.reset}"
   else
-    "#{Tty.red}#{f} (uninstalled)#{Tty.reset}"
+    Formatter.error("#{Tty.bold}#{f} (uninstalled)#{Tty.reset}")
   end
 end
 
@@ -224,7 +151,9 @@ def interactive_shell(f = nil)
 end
 
 module Homebrew
-  def self._system(cmd, *args)
+  module_function
+
+  def _system(cmd, *args)
     pid = fork do
       yield if block_given?
       args.collect!(&:to_s)
@@ -239,24 +168,12 @@ module Homebrew
     $?.success?
   end
 
-  def self.system(cmd, *args)
+  def system(cmd, *args)
     puts "#{cmd} #{args*" "}" if ARGV.verbose?
     _system(cmd, *args)
   end
 
-  def self.core_tap_version_string
-    require "tap"
-    tap = CoreTap.instance
-    return "N/A" unless tap.installed?
-    if pretty_revision = tap.git_short_head
-      last_commit = tap.git_last_commit_date
-      "(git revision #{pretty_revision}; last commit #{last_commit})"
-    else
-      "(no git repository)"
-    end
-  end
-
-  def self.install_gem_setup_path!(name, version = nil, executable = name)
+  def install_gem_setup_path!(name, version = nil, executable = name)
     # Respect user's preferences for where gems should be installed.
     ENV["GEM_HOME"] = ENV["GEM_OLD_HOME"].to_s
     ENV["GEM_HOME"] = Gem.user_dir if ENV["GEM_HOME"].empty?
@@ -291,20 +208,19 @@ module Homebrew
       odie "Failed to install/update the '#{name}' gem." if exit_code.nonzero?
     end
 
-    unless which executable
-      odie <<-EOS.undent
-        The '#{name}' gem is installed but couldn't find '#{executable}' in the PATH:
-        #{ENV["PATH"]}
-      EOS
-    end
+    return if which(executable)
+    odie <<-EOS.undent
+      The '#{name}' gem is installed but couldn't find '#{executable}' in the PATH:
+      #{ENV["PATH"]}
+    EOS
   end
 
   # Hash of Module => Set(method_names)
-  @@injected_dump_stat_modules = {}
+  @injected_dump_stat_modules = {}
 
   def inject_dump_stats!(the_module, pattern)
-    @@injected_dump_stat_modules[the_module] ||= []
-    injected_methods = @@injected_dump_stat_modules[the_module]
+    @injected_dump_stat_modules[the_module] ||= []
+    injected_methods = @injected_dump_stat_modules[the_module]
     the_module.module_eval do
       instance_methods.grep(pattern).each do |name|
         next if injected_methods.include? name

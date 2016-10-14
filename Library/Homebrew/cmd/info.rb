@@ -25,6 +25,8 @@ require "tab"
 require "utils/json"
 
 module Homebrew
+  module_function
+
   def info
     # eventually we'll solidify an API, but we'll keep old versions
     # awhile around for compatibility
@@ -117,7 +119,7 @@ module Homebrew
 
     puts "#{f.full_name}: #{specs * ", "}#{" [#{attrs * ", "}]" unless attrs.empty?}"
     puts f.desc if f.desc
-    puts "#{Tty.em}#{f.homepage}#{Tty.reset}" if f.homepage
+    puts Formatter.url(f.homepage) if f.homepage
 
     conflicts = f.conflicts.map(&:name).sort!
     puts "Conflicts with: #{conflicts*", "}" unless conflicts.empty?
@@ -133,7 +135,7 @@ module Homebrew
       end
     end
 
-    puts "From: #{Tty.em}#{github_info(f)}#{Tty.reset}"
+    puts "From: #{Formatter.url(github_info(f))}"
 
     unless f.deps.empty?
       ohai "Dependencies"

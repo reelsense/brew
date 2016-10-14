@@ -1,6 +1,8 @@
 require "optparse"
 require "shellwords"
 
+require "extend/optparse"
+
 require "hbc/cli/base"
 require "hbc/cli/audit"
 require "hbc/cli/cat"
@@ -179,6 +181,10 @@ module Hbc
     def self.parser
       # If you modify these arguments, please update USAGE.md
       @parser ||= OptionParser.new do |opts|
+        opts.on("--language STRING") do
+          # handled in OS::Mac
+        end
+
         OPTIONS.each do |option, method|
           opts.on("#{option}" "PATH", Pathname) do |path|
             Hbc.public_send(method, path)

@@ -5,20 +5,22 @@ A formula is a package definition written in Ruby. It can be created with `brew 
 
 | Term           | Description                                                | Example                                                         |
 |----------------|------------------------------------------------------------|-----------------------------------------------------------------|
-| **Formula**    | The package definition                                     | `/usr/local/Library/Taps/homebrew/homebrew-core/Formula/foo.rb` |
+| **Formula**    | The package definition                                     | `/usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/foo.rb` |
 | **Keg**        | The installation prefix of a **Formula**                   | `/usr/local/Cellar/foo/0.1`                                     |
 | **opt prefix** | A symlink to the active version of a **Keg**               | `/usr/local/opt/foo `                                           |
 | **Cellar**     | All **Kegs** are installed here                            | `/usr/local/Cellar`                                             |
-| **Tap**        | An optional Git repository of **Formulae** and/or commands | `/usr/local/Library/Taps/homebrew/homebrew-versions`            |
+| **Tap**        | An optional Git repository of **Formulae** and/or commands | `/usr/local/Homebrew/Library/Taps/homebrew/homebrew-versions`   |
 | **Bottle**     | Pre-built **Keg** used instead of building from source     | `qt-4.8.4.mavericks.bottle.tar.gz`                              |
-
+| **Cask**       | An [extension of homebrew](https://github.com/caskroom/homebrew-cask) to install macOS native apps  | `/Applications/MacDown.app/Contents/SharedSupport/bin/macdown` |
+| **Brew Bundle**| An [extension of homebrew](https://github.com/Homebrew/homebrew-bundle) to describe dependencies    | `brew 'myservice', restart_service: true` |
+ 
 ## An Introduction
 
 Homebrew uses Git for downloading updates and contributing to the project.
 
 Homebrew installs to the `Cellar` it then symlinks some of the installation into `/usr/local` so that other programs can see what's going on. We suggest you `brew ls` a few of the kegs in your Cellar to see how it is all arranged.
 
-Packages are installed according to their formulae, which live in `/usr/local/Library/Taps/homebrew/homebrew-core/Formula`. Check one out a simple one e.g. `brew edit etl` (or [etl](https://github.com/Homebrew/homebrew-core/blob/master/Formula/etl.rb)) or a more advanced one e.g. `brew edit git` or [Git](https://github.com/Homebrew/homebrew-core/blob/master/Formula/git.rb).
+Packages are installed according to their formulae, which live in `/usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula`. Check one out a simple one e.g. `brew edit etl` (or [etl](https://github.com/Homebrew/homebrew-core/blob/master/Formula/etl.rb)) or a more advanced one e.g. `brew edit git` or [Git](https://github.com/Homebrew/homebrew-core/blob/master/Formula/git.rb).
 
 # Basic Instructions
 
@@ -44,7 +46,7 @@ Run `brew create` with a URL to the source tarball:
 brew create https://example.com/foo-0.1.tar.gz
 ```
 
-This creates `/usr/local/Library/Taps/homebrew/homebrew-core/Formula/foo.rb` and opens it in your `$EDITOR`. It'll look something like:
+This creates `/usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/foo.rb` and opens it in your `$EDITOR`. It'll look something like:
 
 ```ruby
 class Foo < Formula

@@ -79,7 +79,7 @@ module Homebrew
       end
 
       def inject_file_list(list, string)
-        list.inject(string) { |a, e| a << "    #{e}\n" }
+        list.inject(string) { |a, e| a << "  #{e}\n" }
       end
       ############# END HELPERS
 
@@ -389,10 +389,10 @@ module Homebrew
         return if HOMEBREW_PREFIX.to_s == "/usr/local"
 
         <<-EOS.undent
-          Your Homebrew is not installed to /usr/local
-          You can install Homebrew anywhere you want but some bottles (binary
-          packages) can only be used in /usr/local and some formulae (packages)
-          may not build correctly unless you install in /usr/local. Sorry!
+          Your Homebrew's prefix is not /usr/local.
+          You can install Homebrew anywhere you want but some bottles (binary packages)
+          can only be used with a /usr/local prefix and some formulae (packages)
+          may not build correctly with a non-/usr/local prefix.
         EOS
       end
 
@@ -473,7 +473,7 @@ module Homebrew
           If you have trouble downloading packages with Homebrew, then maybe this
           is the problem? If the following command doesn't work, then try removing
           your curlrc:
-            curl https://github.com
+            curl #{Formatter.url("https://github.com")}
         EOS
       end
 
@@ -610,11 +610,23 @@ module Homebrew
 
             Setting DYLD_INSERT_LIBRARIES can cause Go builds to fail.
             Having this set is common if you use this software:
-              http://asepsis.binaryage.com/
+              #{Formatter.url("http://asepsis.binaryage.com/")}
           EOS
         end
 
         message
+      end
+
+      def check_ssl_cert_file
+        return unless ENV.key?("SSL_CERT_FILE")
+        <<-EOS.undent
+          Setting SSL_CERT_FILE can break downloading files; if that happens
+          you should unset it before running Homebrew.
+
+          Homebrew uses the system curl which uses system certificates by
+          default. Setting SSL_CERT_FILE makes it use an outdated OpenSSL, which
+          does not support modern OpenSSL certificate stores.
+        EOS
       end
 
       def check_for_symlinked_cellar
@@ -644,13 +656,18 @@ module Homebrew
         real_cellar = HOMEBREW_CELLAR.realpath
         where_cellar = volumes.which real_cellar
 
-        tmp = Pathname.new(Dir.mktmpdir("doctor", HOMEBREW_TEMP))
         begin
-          real_tmp = tmp.realpath.parent
-          where_tmp = volumes.which real_tmp
-        ensure
-          Dir.delete tmp
+          tmp = Pathname.new(Dir.mktmpdir("doctor", HOMEBREW_TEMP))
+          begin
+            real_tmp = tmp.realpath.parent
+            where_tmp = volumes.which real_tmp
+          ensure
+            Dir.delete tmp
+          end
+        rescue
+          return
         end
+
         return if where_cellar == where_tmp
 
         <<-EOS.undent
@@ -752,7 +769,7 @@ module Homebrew
             Without a correctly configured origin, Homebrew won't update
             properly. You can solve this by adding the Homebrew remote:
               cd #{HOMEBREW_REPOSITORY}
-              git remote add origin https://github.com/Homebrew/brew.git
+              git remote add origin #{Formatter.url("https://github.com/Homebrew/brew.git")}
           EOS
         elsif origin !~ %r{Homebrew/brew(\.git)?$}
           <<-EOS.undent
@@ -764,7 +781,7 @@ module Homebrew
 
             Unless you have compelling reasons, consider setting the
             origin remote to point at the main repository, located at:
-              https://github.com/Homebrew/brew.git
+              #{Formatter.url("https://github.com/Homebrew/brew.git")}
           EOS
         end
       end
@@ -956,8 +973,8 @@ module Homebrew
         <<-EOS.undent
           A .pydistutils.cfg file was found in $HOME, which may cause Python
           builds to fail. See:
-            https://bugs.python.org/issue6138
-            https://bugs.python.org/issue4655
+            #{Formatter.url("https://bugs.python.org/issue6138")}
+            #{Formatter.url("https://bugs.python.org/issue4655")}
         EOS
       end
 

@@ -16,7 +16,7 @@ class DiagnosticChecksTest < Homebrew::TestCase
   def test_inject_file_list
     assert_equal "foo:\n",
       @checks.inject_file_list([], "foo:\n")
-    assert_equal "foo:\n    /a\n    /b\n",
+    assert_equal "foo:\n  /a\n  /b\n",
       @checks.inject_file_list(%w[/a /b], "foo:\n")
   end
 
@@ -85,7 +85,7 @@ class DiagnosticChecksTest < Homebrew::TestCase
 
   def test_check_homebrew_prefix
     # the integration tests are run in a special prefix
-    assert_match "Your Homebrew is not installed to /usr/local",
+    assert_match "Your Homebrew's prefix is not /usr/local.",
       @checks.check_homebrew_prefix
   end
 

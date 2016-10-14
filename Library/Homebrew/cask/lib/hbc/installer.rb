@@ -58,11 +58,10 @@ module Hbc
     def install
       odebug "Hbc::Installer.install"
 
-      if @cask.installed? && @cask.auto_updates && !force
-        raise CaskAutoUpdatesError, @cask
+      if @cask.installed? && !force
+        raise CaskAlreadyInstalledAutoUpdatesError, @cask if @cask.auto_updates
+        raise CaskAlreadyInstalledError, @cask
       end
-
-      raise CaskAlreadyInstalledError, @cask if @cask.installed? && !force
 
       print_caveats
 
@@ -87,7 +86,7 @@ module Hbc
       s = if MacOS.version >= :lion && !ENV["HOMEBREW_NO_EMOJI"]
             (ENV["HOMEBREW_INSTALL_BADGE"] || "\xf0\x9f\x8d\xba") + "  "
           else
-            "#{Tty.blue}==>#{Tty.reset} #{Tty.white}Success!#{Tty.reset} "
+            Formatter.headline("Success! ", color: :blue)
           end
       s << "#{@cask} was successfully installed!"
     end

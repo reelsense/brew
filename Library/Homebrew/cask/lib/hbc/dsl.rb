@@ -1,4 +1,5 @@
 require "set"
+require "locale"
 
 require "hbc/dsl/appcast"
 require "hbc/dsl/base"
@@ -8,7 +9,6 @@ require "hbc/dsl/container"
 require "hbc/dsl/depends_on"
 require "hbc/dsl/gpg"
 require "hbc/dsl/installer"
-require "hbc/dsl/license"
 require "hbc/dsl/postflight"
 require "hbc/dsl/preflight"
 require "hbc/dsl/stanza_proxy"
@@ -64,7 +64,7 @@ module Hbc
                             :depends_on,
                             :gpg,
                             :homepage,
-                            :license,
+                            :language,
                             :name,
                             :sha256,
                             :staged_path,
@@ -96,6 +96,43 @@ module Hbc
     def homepage(homepage = nil)
       assert_only_one_stanza_allowed :homepage, !homepage.nil?
       @homepage ||= homepage
+    end
+
+    def language(*args, default: false, &block)
+      if !args.empty? && block_given?
+        @language_blocks ||= {}
+        @language_blocks[args] = block
+
+        return unless default
+
+        unless @language_blocks.default.nil?
+          raise CaskInvalidError.new(token, "Only one default language may be defined")
+        end
+
+        @language_blocks.default = block
+      else
+        language_eval
+      end
+    end
+
+    def language_eval
+      return @language if instance_variable_defined?(:@language)
+
+      if @language_blocks.nil? || @language_blocks.empty?
+        return @language = nil
+      end
+
+      MacOS.languages.map(&Locale.method(:parse)).each do |locale|
+        key = @language_blocks.keys.detect { |strings|
+          strings.any? { |string| locale.include?(string) }
+        }
+
+        next if key.nil?
+
+        return @language = @language_blocks[key].call
+      end
+
+      @language = @language_blocks.default.call
     end
 
     def url(*args, &block)
@@ -167,14 +204,10 @@ module Hbc
       @sha256 ||= arg
     end
 
-    def license(arg = nil)
-      return @license if arg.nil?
-      assert_only_one_stanza_allowed :license, !arg.nil?
-      @license ||= begin
-        DSL::License.new(arg) unless arg.nil?
-      rescue StandardError => e
-        raise CaskInvalidError.new(token, e)
-      end
+    def license(*)
+      # TODO: Uncomment after `license` has been
+      #       removed from all official taps.
+      # odeprecated "Hbc::DSL#license"
     end
 
     # depends_on uses a load method so that multiple stanzas can be merged

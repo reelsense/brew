@@ -1,5 +1,4 @@
 require "requirement"
-require "requirements/apr_requirement"
 require "requirements/fortran_requirement"
 require "requirements/gpg2_requirement"
 require "requirements/language_module_requirement"
@@ -44,7 +43,7 @@ class XcodeRequirement < Requirement
       EOS
     else
       message + <<-EOS.undent
-        Xcode can be installed from https://developer.apple.com/xcode/downloads/
+        Xcode can be installed from #{Formatter.url("https://developer.apple.com/xcode/downloads/")}
       EOS
     end
   end
