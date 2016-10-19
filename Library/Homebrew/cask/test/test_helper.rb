@@ -17,11 +17,9 @@ require "global"
 # add Homebrew-Cask to load path
 $LOAD_PATH.push(project_root.join("lib").to_s)
 
-# force some environment variables
-ENV["HOMEBREW_NO_EMOJI"] = "1"
-ENV["HOMEBREW_CASK_OPTS"] = nil
-
+require "test/helper/env"
 require "test/helper/shutup"
+include Test::Helper::Env
 include Test::Helper::Shutup
 
 def sudo(*args)
@@ -155,17 +153,7 @@ require "support/never_sudo_system_command"
 require "tmpdir"
 require "tempfile"
 
-# create directories
-FileUtils.mkdir_p Hbc.homebrew_prefix.join("bin")
-
 # Common superclass for test Casks for when we need to filter them out
 module Hbc
   class TestCask < Cask; end
 end
-
-# jack in some optional utilities
-FileUtils.ln_s "/usr/local/bin/cabextract", Hbc.homebrew_prefix.join("bin/cabextract")
-FileUtils.ln_s "/usr/local/bin/unar", Hbc.homebrew_prefix.join("bin/unar")
-FileUtils.ln_s "/usr/local/bin/unlzma", Hbc.homebrew_prefix.join("bin/unlzma")
-FileUtils.ln_s "/usr/local/bin/unxz", Hbc.homebrew_prefix.join("bin/unxz")
-FileUtils.ln_s "/usr/local/bin/lsar", Hbc.homebrew_prefix.join("bin/lsar")

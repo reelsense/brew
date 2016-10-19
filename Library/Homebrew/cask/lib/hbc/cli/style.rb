@@ -23,7 +23,7 @@ module Hbc
         $CHILD_STATUS.success?
       end
 
-      RUBOCOP_CASK_VERSION = "~> 0.10.0".freeze
+      RUBOCOP_CASK_VERSION = "~> 0.10.4".freeze
 
       def install_rubocop
         Utils.capture_stderr do
@@ -54,15 +54,16 @@ module Hbc
       end
 
       def default_args
-        ["--format", "simple", "--force-exclusion", "--config", rubocop_config]
+        [
+          "--require", "rubocop-cask",
+          "--config", "/dev/null", # always use `rubocop-cask` default config
+          "--format", "simple",
+          "--force-exclusion"
+        ]
       end
 
       def autocorrect_args
         default_args + ["--auto-correct"]
-      end
-
-      def rubocop_config
-        Hbc.default_tap.cask_dir.join(".rubocop.yml")
       end
 
       def fix?
