@@ -11,7 +11,7 @@
 #:    connection are run.
 #:
 #:    If `--new-formula` is passed, various additional checks are run that check
-#:    if a new formula is eligable for Homebrew. This should be used when creating
+#:    if a new formula is eligible for Homebrew. This should be used when creating
 #:    new formulae and implies `--strict` and `--online`.
 #:
 #:    If `--display-cop-names` is passed, the RuboCop cop name for each violation
@@ -741,7 +741,7 @@ class FormulaAuditor
     end
     bin_names.each do |name|
       ["system", "shell_output", "pipe_output"].each do |cmd|
-        if text =~ /(def test|test do).*#{cmd}[\(\s]+['"]#{name}[\s'"]/m
+        if text =~ /(def test|test do).*#{cmd}[\(\s]+['"]#{Regexp.escape name}[\s'"]/m
           problem %(fully scope test #{cmd} calls e.g. #{cmd} "\#{bin}/#{name}")
         end
       end
