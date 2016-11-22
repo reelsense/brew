@@ -1337,10 +1337,14 @@ class Formula
     end
   end
 
-  # Clear caches of .racks and .installed.
-  # @private
-  def self.clear_cache
+  # Clear cache of .racks
+  def self.clear_racks_cache
     @racks = nil
+  end
+
+  # Clear caches of .racks and .installed.
+  def self.clear_installed_formulae_cache
+    clear_racks_cache
     @installed = nil
   end
 
@@ -1623,7 +1627,7 @@ class Formula
 
   # @private
   def test_fixtures(file)
-    HOMEBREW_LIBRARY_PATH.join("test", "fixtures", file)
+    HOMEBREW_LIBRARY_PATH.join("test", "support", "fixtures", file)
   end
 
   # This method is overridden in {Formula} subclasses to provide the installation instructions.
