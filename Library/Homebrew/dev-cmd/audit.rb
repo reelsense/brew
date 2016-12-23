@@ -448,8 +448,13 @@ class FormulaAuditor
 
   def audit_options
     formula.options.each do |o|
+      if o.name == "32-bit"
+        problem "macOS has been 64-bit only since 10.6 so 32-bit options are deprecated."
+      end
+
       next unless @strict
-      if o.name !~ /with(out)?-/ && o.name != "c++11" && o.name != "universal" && o.name != "32-bit"
+
+      if o.name !~ /with(out)?-/ && o.name != "c++11" && o.name != "universal"
         problem "Options should begin with with/without. Migrate '--#{o.name}' with `deprecated_option`."
       end
 
@@ -706,7 +711,7 @@ class FormulaAuditor
     return if formula.revision.zero?
     if formula.stable
       revision_map = attributes_map[:revision][:stable]
-      stable_revisions = revision_map[formula.stable.version]
+      stable_revisions = revision_map[formula.stable.version] if revision_map
       if !stable_revisions || stable_revisions.empty?
         problem "'revision #{formula.revision}' should be removed"
       end
@@ -998,6 +1003,17 @@ class FormulaAuditor
 
     if line.include?('system "npm", "install"') && !line.include?("Language::Node") && formula.name !~ /^kibana(\d{2})?$/
       problem "Use Language::Node for npm install args"
+    end
+
+    if line.include?("fails_with :llvm")
+      problem "'fails_with :llvm' is now a no-op so should be removed"
+    end
+
+    if formula.tap.to_s == "homebrew/core"
+      ["OS.mac?", "OS.linux?"].each do |check|
+        next unless line.include?(check)
+        problem "Don't use #{check}; Homebrew/core only supports macOS"
+      end
     end
 
     return unless @strict

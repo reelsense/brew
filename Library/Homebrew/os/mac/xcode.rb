@@ -15,13 +15,13 @@ module OS
         when "10.8"  then "5.1.1"
         when "10.9"  then "6.2"
         when "10.10" then "7.2.1"
-        when "10.11" then "8.1"
-        when "10.12" then "8.1"
+        when "10.11" then "8.2"
+        when "10.12" then "8.2"
         else
           raise "macOS '#{MacOS.version}' is invalid" unless OS::Mac.prerelease?
 
           # Default to newest known version of Xcode for unreleased macOS versions.
-          "8.1"
+          "8.2"
         end
       end
 
@@ -32,13 +32,8 @@ module OS
         end
       end
 
-      def minimum_version?
+      def below_minimum_version?
         version < minimum_version
-      end
-
-      def prerelease?
-        # TODO: bump to version >= "8.3" after Xcode 8.2 is stable.
-        Version.new(version) >= "8.2"
       end
 
       def outdated?
@@ -67,7 +62,9 @@ module OS
       end
 
       def toolchain_path
-        Pathname.new("#{prefix}/Toolchains/XcodeDefault.xctoolchain") if installed? && Version.new(version) >= "4.3"
+        return unless installed?
+        return if Version.new(version) < "4.3"
+        Pathname.new("#{prefix}/Toolchains/XcodeDefault.xctoolchain")
       end
 
       # Ask Spotlight where Xcode is. If the user didn't install the
@@ -82,7 +79,7 @@ module OS
       end
 
       def update_instructions
-        if Version.new(MacOS.version) >= "10.9" && !OS::Mac.prerelease?
+        if MacOS.version >= "10.9" && !OS::Mac.prerelease?
           <<-EOS.undent
             Xcode can be updated from the App Store.
           EOS
@@ -194,7 +191,7 @@ module OS
       end
 
       def update_instructions
-        if Xcode::Version.new(MacOS.version) >= "10.9"
+        if MacOS.version >= "10.9"
           <<-EOS.undent
             Update them from Software Update in the App Store.
           EOS
@@ -229,12 +226,17 @@ module OS
         end
       end
 
-      def minimum_version?
+      def below_minimum_version?
+        # Lion was the first version of OS X to ship with a CLT
+        return false if MacOS.version < :lion
         version < minimum_version
       end
 
       def outdated?
-        if Xcode::Version.new(MacOS.version) >= :mavericks.to_s
+        # Lion was the first version of OS X to ship with a CLT
+        return false if MacOS.version < :lion
+
+        if MacOS.version >= :mavericks
           version = Utils.popen_read("#{MAVERICKS_PKG_PATH}/usr/bin/clang --version")
         else
           version = Utils.popen_read("/usr/bin/clang --version")
@@ -253,7 +255,9 @@ module OS
       def detect_version
         # CLT isn't a distinct entity pre-4.3, and pkgutil doesn't exist
         # at all on Tiger, so just count it as installed if Xcode is installed
-        return MacOS::Xcode.version if MacOS::Xcode.installed? && Xcode::Version.new(MacOS::Xcode.version) < "3.0"
+        if MacOS::Xcode.installed? && Xcode::Version.new(MacOS::Xcode.version) < "3.0"
+          return MacOS::Xcode.version
+        end
 
         [MAVERICKS_PKG_ID, MAVERICKS_NEW_PKG_ID, STANDALONE_PKG_ID, FROM_XCODE_PKG_ID].find do |id|
           if MacOS.version >= :mavericks

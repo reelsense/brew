@@ -553,6 +553,28 @@ class Formula
     Pathname.new("#{HOMEBREW_CELLAR}/#{name}/#{v}")
   end
 
+  # Is the formula linked?
+  def linked?
+    linked_keg.symlink?
+  end
+
+  # Is the formula linked to opt?
+  def optlinked?
+    opt_prefix.symlink?
+  end
+
+  # Is formula's linked keg points to the prefix.
+  def prefix_linked?(v = pkg_version)
+    return false unless linked?
+    linked_keg.resolved_path == prefix(v)
+  end
+
+  # {PkgVersion} of the linked keg for the formula.
+  def linked_version
+    return unless linked?
+    Keg.for(linked_keg).version
+  end
+
   # The parent of the prefix; the named directory in the cellar containing all
   # installed versions of this software
   # @private
@@ -776,6 +798,22 @@ class Formula
   # across upgrades.
   def var
     HOMEBREW_PREFIX+"var"
+  end
+
+  # The directory where the formula's ZSH function files should be
+  # installed.
+  # This is symlinked into `HOMEBREW_PREFIX` after installation or with
+  # `brew link` for formulae that are not keg-only.
+  def zsh_function
+    share+"zsh/site-functions"
+  end
+
+  # The directory where the formula's fish function files should be
+  # installed.
+  # This is symlinked into `HOMEBREW_PREFIX` after installation or with
+  # `brew link` for formulae that are not keg-only.
+  def fish_function
+    share+"fish/vendor_functions.d"
   end
 
   # The directory where the formula's Bash completion files should be
@@ -2302,6 +2340,8 @@ class Formula
     #   version '4.8.1'
     # end</pre>
     def fails_with(compiler, &block)
+      # TODO: deprecate this in future.
+      # odeprecated "fails_with :llvm" if compiler == :llvm
       specs.each { |spec| spec.fails_with(compiler, &block) }
     end
 

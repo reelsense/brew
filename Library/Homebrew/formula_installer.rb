@@ -60,10 +60,6 @@ class FormulaInstaller
     @pour_failed   = false
   end
 
-  def skip_deps_check?
-    ignore_deps?
-  end
-
   # When no build tools are available and build flags are passed through ARGV,
   # it's necessary to interrupt the user before any sort of installation
   # can proceed. Only invoked when the user has no developer tools.
@@ -125,7 +121,7 @@ class FormulaInstaller
 
   def prelude
     Tab.clear_cache
-    verify_deps_exist unless skip_deps_check?
+    verify_deps_exist unless ignore_deps?
     lock
     check_install_sanity
   end
@@ -147,7 +143,7 @@ class FormulaInstaller
   def check_install_sanity
     raise FormulaInstallationAlreadyAttemptedError, formula if @@attempted.include?(formula)
 
-    return if skip_deps_check?
+    return if ignore_deps?
 
     recursive_deps = formula.recursive_dependencies
     unlinked_deps = recursive_deps.map(&:to_formula).select do |dep|
@@ -197,7 +193,7 @@ class FormulaInstaller
       raise BuildToolsError, [formula]
     end
 
-    unless skip_deps_check?
+    unless ignore_deps?
       deps = compute_dependencies
       check_dependencies_bottled(deps) if pour_bottle? && !DevelopmentTools.installed?
       install_dependencies(deps)
@@ -219,16 +215,16 @@ class FormulaInstaller
       opoo "#{formula.full_name}: this formula has no #{option} option so it will be ignored!"
     end
 
-    oh1 "Installing #{Formatter.identifier(formula.full_name)}" if show_header?
+    options = []
+    if formula.head?
+      options << "--HEAD"
+    elsif formula.devel?
+      options << "--devel"
+    end
+    options += effective_build_options_for(formula).used_options.to_a
+    oh1 "Installing #{Formatter.identifier(formula.full_name)} #{options.join " "}" if show_header?
 
     if formula.tap && !formula.tap.private?
-      options = []
-      if formula.head?
-        options << "--HEAD"
-      elsif formula.devel?
-        options << "--devel"
-      end
-      options += effective_build_options_for(formula).used_options.to_a
       category = "install"
       action = ([formula.full_name] + options).join(" ")
       Utils::Analytics.report_event(category, action)
@@ -236,8 +232,7 @@ class FormulaInstaller
 
     @@attempted << formula
 
-    pour_bottle = pour_bottle?(warn: true)
-    if pour_bottle
+    if pour_bottle?(warn: true)
       begin
         pour
       rescue Exception => e
@@ -251,18 +246,17 @@ class FormulaInstaller
         onoe e.message
         opoo "Bottle installation failed: building from source."
         raise BuildToolsError, [formula] unless DevelopmentTools.installed?
+        compute_and_install_dependencies unless ignore_deps?
       else
-        puts_requirement_messages
         @poured_bottle = true
       end
     end
 
+    puts_requirement_messages
+
     build_bottle_preinstall if build_bottle?
 
     unless @poured_bottle
-      not_pouring = !pour_bottle || @pour_failed
-      compute_and_install_dependencies if not_pouring && !ignore_deps?
-      puts_requirement_messages
       build
       clean
 
@@ -444,12 +438,6 @@ class FormulaInstaller
     @show_header = true unless deps.empty?
   end
 
-  class DependencyInstaller < FormulaInstaller
-    def skip_deps_check?
-      true
-    end
-  end
-
   def install_dependency(dep, inherited_options)
     df = dep.to_formula
     tab = Tab.for_formula(df)
@@ -465,7 +453,7 @@ class FormulaInstaller
       installed_keg.rename(tmp_keg)
     end
 
-    fi = DependencyInstaller.new(df)
+    fi = FormulaInstaller.new(df)
     fi.options           |= tab.used_options
     fi.options           |= Tab.remap_deprecated_options(df.deprecated_options, dep.options)
     fi.options           |= inherited_options
