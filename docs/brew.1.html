@@ -22,7 +22,7 @@ didn't include with macOS.</p>
 
 <dl>
 <dt><code>install</code> <var>formula</var></dt><dd><p>Install <var>formula</var>.</p></dd>
-<dt><code>remove</code> <var>formula</var></dt><dd><p>Uninstall <var>formula</var>.</p></dd>
+<dt><code>uninstall</code> <var>formula</var></dt><dd><p>Uninstall <var>formula</var>.</p></dd>
 <dt class="flush"><code>update</code></dt><dd><p>Fetch the newest version of Homebrew from GitHub using <code>git</code>(1).</p></dd>
 <dt class="flush"><code>list</code></dt><dd><p>List all installed formulae.</p></dd>
 <dt><code>search</code> <var>text</var>|<code>/</code><var>text</var><code>/</code></dt><dd><p>Perform a substring search of formula names for <var>text</var>. If <var>text</var> is
@@ -196,10 +196,7 @@ for installation.</p>
 aka master, trunk, unstable.</p>
 
 <p>If <code>--keep-tmp</code> is passed, the temporary files created during installation
-are not deleted.</p>
-
-<p>To install a newer version of HEAD use
-<code>brew rm &lt;foo> &amp;&amp; brew install --HEAD &lt;foo></code>.</p></dd>
+are not deleted.</p></dd>
 <dt><code>install</code> <code>--interactive</code> [<code>--git</code>] <var>formula</var></dt><dd><p>Download and patch <var>formula</var>, then open a shell. This allows the user to
 run <code>./configure --help</code> and otherwise determine how to turn the software
 package into a Homebrew formula.</p>

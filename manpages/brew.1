@@ -26,7 +26,7 @@ With \fB\-\-verbose\fR or \fB\-v\fR, many commands print extra debugging informa
 Install \fIformula\fR\.
 .
 .TP
-\fBremove\fR \fIformula\fR
+\fBuninstall\fR \fIformula\fR
 Uninstall \fIformula\fR\.
 .
 .TP
@@ -257,9 +257,6 @@ If \fB\-\-HEAD\fR is passed, and \fIformula\fR defines it, install the HEAD vers
 .
 .IP
 If \fB\-\-keep\-tmp\fR is passed, the temporary files created during installation are not deleted\.
-.
-.IP
-To install a newer version of HEAD use \fBbrew rm <foo> && brew install \-\-HEAD <foo>\fR\.
 .
 .TP
 \fBinstall\fR \fB\-\-interactive\fR [\fB\-\-git\fR] \fIformula\fR
