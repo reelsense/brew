@@ -6,38 +6,10 @@ require "test/support/helper/test_case"
 
 class IntegrationCommandTestCase < Homebrew::TestCase
   def setup
+    super
     @cmd_id_index = 0 # Assign unique IDs to invocations of `cmd_output`.
     (HOMEBREW_PREFIX/"bin").mkpath
     FileUtils.touch HOMEBREW_PREFIX/"bin/brew"
-  end
-
-  def teardown
-    coretap = CoreTap.new
-    paths_to_delete = [
-      HOMEBREW_LINKED_KEGS,
-      HOMEBREW_PINNED_KEGS,
-      HOMEBREW_CELLAR.children,
-      HOMEBREW_CACHE.children,
-      HOMEBREW_LOCK_DIR.children,
-      HOMEBREW_LOGS.children,
-      HOMEBREW_TEMP.children,
-      HOMEBREW_PREFIX/".git",
-      HOMEBREW_PREFIX/"bin",
-      HOMEBREW_PREFIX/"share",
-      HOMEBREW_PREFIX/"opt",
-      HOMEBREW_PREFIX/"Caskroom",
-      HOMEBREW_LIBRARY/"Taps/caskroom",
-      HOMEBREW_LIBRARY/"Taps/homebrew/homebrew-bundle",
-      HOMEBREW_LIBRARY/"Taps/homebrew/homebrew-foo",
-      HOMEBREW_LIBRARY/"Taps/homebrew/homebrew-services",
-      HOMEBREW_LIBRARY/"Taps/homebrew/homebrew-shallow",
-      HOMEBREW_REPOSITORY/".git",
-      coretap.path/".git",
-      coretap.alias_dir,
-      coretap.formula_dir.children,
-      coretap.path/"formula_renames.json",
-    ].flatten
-    FileUtils.rm_rf paths_to_delete
   end
 
   def needs_test_cmd_taps

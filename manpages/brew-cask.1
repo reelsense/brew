@@ -105,6 +105,19 @@ If the Cask definition contains a \fBzap\fR stanza, performs additional \fBzap\f
 .
 .IP "" 0
 .
+.SH "INTERNAL COMMANDS"
+.
+.TP
+\fB_appcast_checkpoint\fR [\-\-calculate] [ \fItoken\fR \.\.\. | \fIURL\fR \.\.\. ]
+Given a \fBtoken\fR, returns the current appcast checkpoint, or calculates the appcast checkpoint if the \fB\-\-calculate\fR flag is specified\.
+.
+.br
+Given a \fBURL\fR, calculates the appcast checkpoint for it\.
+.
+.TP
+\fB_stanza\fR \fIstanza_name\fR [ \-\-table | \-\-yaml | \-\-inspect | \-\-quiet ] [ \fIcask_token\fR \.\.\. ]
+Given a \fBstanza_name\fR and a \fBcask_token\fR, returns the current stanza for a given Cask\. If no \fBcask_token\fR is given, then data for all Casks is returned\.
+.
 .SH "OPTIONS"
 To make these options persistent, see the ENVIRONMENT section, below\.
 .

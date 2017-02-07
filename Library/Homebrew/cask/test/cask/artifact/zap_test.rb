@@ -2,7 +2,7 @@ require "test_helper"
 
 # TODO: test that zap removes an alternate version of the same Cask
 describe Hbc::Artifact::Zap do
-  let(:cask) { Hbc.load("with-installable") }
+  let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-installable.rb") }
 
   let(:zap_artifact) {
     Hbc::Artifact::Zap.new(cask, command: Hbc::FakeSystemCommand)
@@ -14,31 +14,15 @@ describe Hbc::Artifact::Zap do
     end
   end
 
-  describe "install_phase" do
-    it "does nothing, because the install_phase method is a no-op" do
-      shutup do
-        zap_artifact.install_phase
-      end
-    end
-  end
-
   describe "uninstall_phase" do
-    it "does nothing, because the uninstall_phase method is a no-op" do
+    subject {
       shutup do
         zap_artifact.uninstall_phase
       end
-    end
-  end
-
-  describe "zap_phase" do
-    subject do
-      shutup do
-        zap_artifact.zap_phase
-      end
-    end
+    }
 
     describe "when using launchctl" do
-      let(:cask) { Hbc.load("with-zap-launchctl") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-launchctl.rb") }
       let(:launchctl_list_cmd) { %w[/bin/launchctl list my.fancy.package.service] }
       let(:launchctl_remove_cmd) { %w[/bin/launchctl remove my.fancy.package.service] }
       let(:unknown_response) { "launchctl list returned unknown response\n" }
@@ -95,7 +79,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using pkgutil" do
-      let(:cask) { Hbc.load("with-zap-pkgutil") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-pkgutil.rb") }
       let(:main_pkg_id) { "my.fancy.package.main" }
       let(:agent_pkg_id) { "my.fancy.package.agent" }
       let(:main_files) {
@@ -181,7 +165,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using kext" do
-      let(:cask) { Hbc.load("with-zap-kext") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-kext.rb") }
       let(:kext_id) { "my.fancy.package.kernelextension" }
 
       it "can zap" do
@@ -206,7 +190,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using quit" do
-      let(:cask) { Hbc.load("with-zap-quit") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-quit.rb") }
       let(:bundle_id) { "my.fancy.package.app" }
       let(:quit_application_script) {
         %Q(tell application id "#{bundle_id}" to quit)
@@ -226,7 +210,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using signal" do
-      let(:cask) { Hbc.load("with-zap-signal") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-signal.rb") }
       let(:bundle_id) { "my.fancy.package.app" }
       let(:signals) { %w[TERM KILL] }
       let(:unix_pids) { [12_345, 67_890] }
@@ -245,7 +229,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using delete" do
-      let(:cask) { Hbc.load("with-zap-delete") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-delete.rb") }
 
       it "can zap" do
         Hbc::FakeSystemCommand.expects_command(
@@ -259,7 +243,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using trash" do
-      let(:cask) { Hbc.load("with-zap-trash") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-trash.rb") }
 
       it "can zap" do
         Hbc::FakeSystemCommand.expects_command(
@@ -273,7 +257,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using rmdir" do
-      let(:cask) { Hbc.load("with-zap-rmdir") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-rmdir.rb") }
       let(:dir_pathname) { Pathname.new("#{TEST_FIXTURE_DIR}/cask/empty_directory") }
 
       it "can zap" do
@@ -290,7 +274,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using script" do
-      let(:cask) { Hbc.load("with-zap-script") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-script.rb") }
       let(:script_pathname) { cask.staged_path.join("MyFancyPkg", "FancyUninstaller.tool") }
 
       it "can zap" do
@@ -305,7 +289,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using early_script" do
-      let(:cask) { Hbc.load("with-zap-early-script") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-early-script.rb") }
       let(:script_pathname) { cask.staged_path.join("MyFancyPkg", "FancyUninstaller.tool") }
 
       it "can zap" do
@@ -320,7 +304,7 @@ describe Hbc::Artifact::Zap do
     end
 
     describe "when using login_item" do
-      let(:cask) { Hbc.load("with-zap-login-item") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-zap-login-item.rb") }
 
       it "can zap" do
         Hbc::FakeSystemCommand.expects_command(

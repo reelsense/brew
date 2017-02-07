@@ -1,7 +1,7 @@
 require "test_helper"
 
 describe Hbc::Artifact::Uninstall do
-  let(:cask) { Hbc.load("with-installable") }
+  let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-installable.rb") }
 
   let(:uninstall_artifact) {
     Hbc::Artifact::Uninstall.new(cask, command: Hbc::FakeSystemCommand)
@@ -13,31 +13,15 @@ describe Hbc::Artifact::Uninstall do
     end
   end
 
-  describe "install_phase" do
-    it "does nothing, because the install_phase method is a no-op" do
-      shutup do
-        uninstall_artifact.install_phase
-      end
-    end
-  end
-
-  describe "zap_phase" do
-    it "does nothing, because the zap_phase method is a no-op" do
-      shutup do
-        uninstall_artifact.zap_phase
-      end
-    end
-  end
-
   describe "uninstall_phase" do
-    subject do
+    subject {
       shutup do
         uninstall_artifact.uninstall_phase
       end
-    end
+    }
 
     describe "when using launchctl" do
-      let(:cask) { Hbc.load("with-uninstall-launchctl") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-launchctl.rb") }
       let(:launchctl_list_cmd) { %w[/bin/launchctl list my.fancy.package.service] }
       let(:launchctl_remove_cmd) { %w[/bin/launchctl remove my.fancy.package.service] }
       let(:unknown_response) { "launchctl list returned unknown response\n" }
@@ -94,7 +78,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using pkgutil" do
-      let(:cask) { Hbc.load("with-uninstall-pkgutil") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-pkgutil.rb") }
       let(:main_pkg_id) { "my.fancy.package.main" }
       let(:agent_pkg_id) { "my.fancy.package.agent" }
       let(:main_files) {
@@ -180,7 +164,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using kext" do
-      let(:cask) { Hbc.load("with-uninstall-kext") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-kext.rb") }
       let(:kext_id) { "my.fancy.package.kernelextension" }
 
       it "can uninstall" do
@@ -205,7 +189,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using quit" do
-      let(:cask) { Hbc.load("with-uninstall-quit") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-quit.rb") }
       let(:bundle_id) { "my.fancy.package.app" }
       let(:quit_application_script) {
         %Q(tell application id "#{bundle_id}" to quit)
@@ -225,7 +209,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using signal" do
-      let(:cask) { Hbc.load("with-uninstall-signal") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-signal.rb") }
       let(:bundle_id) { "my.fancy.package.app" }
       let(:signals) { %w[TERM KILL] }
       let(:unix_pids) { [12_345, 67_890] }
@@ -244,7 +228,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using delete" do
-      let(:cask) { Hbc.load("with-uninstall-delete") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-delete.rb") }
 
       it "can uninstall" do
         Hbc::FakeSystemCommand.expects_command(
@@ -258,7 +242,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using trash" do
-      let(:cask) { Hbc.load("with-uninstall-trash") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-trash.rb") }
 
       it "can uninstall" do
         Hbc::FakeSystemCommand.expects_command(
@@ -272,7 +256,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using rmdir" do
-      let(:cask) { Hbc.load("with-uninstall-rmdir") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-rmdir.rb") }
       let(:dir_pathname) { Pathname.new("#{TEST_FIXTURE_DIR}/cask/empty_directory") }
 
       it "can uninstall" do
@@ -289,7 +273,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using script" do
-      let(:cask) { Hbc.load("with-uninstall-script") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-script.rb") }
       let(:script_pathname) { cask.staged_path.join("MyFancyPkg", "FancyUninstaller.tool") }
 
       it "can uninstall" do
@@ -304,7 +288,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using early_script" do
-      let(:cask) { Hbc.load("with-uninstall-early-script") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-early-script.rb") }
       let(:script_pathname) { cask.staged_path.join("MyFancyPkg", "FancyUninstaller.tool") }
 
       it "can uninstall" do
@@ -319,7 +303,7 @@ describe Hbc::Artifact::Uninstall do
     end
 
     describe "when using login_item" do
-      let(:cask) { Hbc.load("with-uninstall-login-item") }
+      let(:cask) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/with-uninstall-login-item.rb") }
 
       it "can uninstall" do
         Hbc::FakeSystemCommand.expects_command(
