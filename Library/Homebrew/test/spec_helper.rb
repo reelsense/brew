@@ -29,9 +29,20 @@ TEST_DIRECTORIES = [
 RSpec.configure do |config|
   config.order = :random
   config.include(Test::Helper::Shutup)
+  config.before(:each) do |example|
+    if example.metadata[:needs_macos]
+      skip "not on macOS" unless OS.mac?
+    end
+
+    if example.metadata[:needs_python]
+      skip "Python not installed." unless which("python")
+    end
+  end
   config.around(:each) do |example|
     begin
       TEST_DIRECTORIES.each(&:mkpath)
+
+      @__homebrew_failed = Homebrew.failed?
 
       @__files_before_test = Find.find(TEST_TMPDIR).map { |f| f.sub(TEST_TMPDIR, "") }
 
@@ -67,11 +78,15 @@ RSpec.configure do |config|
 
       files_after_test = Find.find(TEST_TMPDIR).map { |f| f.sub(TEST_TMPDIR, "") }
 
-      diff = Set.new(@__files_before_test).difference(Set.new(files_after_test))
+      diff = Set.new(@__files_before_test) ^ Set.new(files_after_test)
       expect(diff).to be_empty, <<-EOS.undent
         file leak detected:
         #{diff.map { |f| "  #{f}" }.join("\n")}
       EOS
+
+      Homebrew.failed = @__homebrew_failed
     end
   end
 end
+
+RSpec::Matchers.alias_matcher :have_failed, :be_failed

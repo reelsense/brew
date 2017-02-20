@@ -625,7 +625,7 @@ Print the version number of Homebrew to standard output and exit\.
 .SH "DEVELOPER COMMANDS"
 .
 .TP
-\fBaudit\fR [\fB\-\-strict\fR] [\fB\-\-online\fR] [\fB\-\-new\-formula\fR] [\fB\-\-display\-cop\-names\fR] [\fB\-\-display\-filename\fR] [\fIformulae\fR]
+\fBaudit\fR [\fB\-\-strict\fR] [\fB\-\-fix\fR] [\fB\-\-online\fR] [\fB\-\-new\-formula\fR] [\fB\-\-display\-cop\-names\fR] [\fB\-\-display\-filename\fR] [\fIformulae\fR]
 Check \fIformulae\fR for Homebrew coding style violations\. This should be run before submitting a new formula\.
 .
 .IP
@@ -633,6 +633,9 @@ If no \fIformulae\fR are provided, all of them are checked\.
 .
 .IP
 If \fB\-\-strict\fR is passed, additional checks are run, including RuboCop style checks\.
+.
+.IP
+If \fB\-\-fix\fR is passed, style violations will be automatically fixed using RuboCop\'s \fB\-\-auto\-correct\fR feature\.
 .
 .IP
 If \fB\-\-online\fR is passed, additional slower checks that require a network connection are run\.
@@ -726,6 +729,10 @@ Open all of Homebrew for editing\.
 .TP
 \fBedit\fR \fIformula\fR
 Open \fIformula\fR in the editor\.
+.
+.TP
+\fBformula\fR \fIformula\fR
+Display the path where \fIformula\fR is
 .
 .TP
 \fBlinkage\fR [\fB\-\-test\fR] [\fB\-\-reverse\fR] \fIformula\-name\fR
@@ -1049,10 +1056,10 @@ Homebrew Documentation: \fIhttps://github\.com/Homebrew/brew/blob/master/docs/\f
 Homebrew\'s lead maintainer is Mike McQuaid\.
 .
 .P
-Homebrew\'s current maintainers are Misty De Meo, Andrew Janke, Xu Cheng, Tomasz Pajor, Josh Hagins, Baptiste Fontaine, Markus Reiter, ilovezfs, Tom Schoonjans, Uladzislau Shablinski, Tim Smith and Alex Dunn\.
+Homebrew\'s current maintainers are Misty De Meo, Andrew Janke, Tomasz Pajor, Josh Hagins, Baptiste Fontaine, Markus Reiter, ilovezfs, Tom Schoonjans, Uladzislau Shablinski, Tim Smith and Alex Dunn\.
 .
 .P
-Former maintainers with significant contributions include Martin Afanasjew, Dominyk Tiller, Brett Koonce, Jack Nagel, Adam Vandenberg and Homebrew\'s creator: Max Howell\.
+Former maintainers with significant contributions include Xu Cheng, Martin Afanasjew, Dominyk Tiller, Brett Koonce, Jack Nagel, Adam Vandenberg and Homebrew\'s creator: Max Howell\.
 .
 .SH "BUGS"
 See our issues on GitHub:

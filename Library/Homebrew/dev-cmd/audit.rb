@@ -1,4 +1,4 @@
-#:  * `audit` [`--strict`] [`--online`] [`--new-formula`] [`--display-cop-names`] [`--display-filename`] [<formulae>]:
+#:  * `audit` [`--strict`] [`--fix`] [`--online`] [`--new-formula`] [`--display-cop-names`] [`--display-filename`] [<formulae>]:
 #:    Check <formulae> for Homebrew coding style violations. This should be
 #:    run before submitting a new formula.
 #:
@@ -6,6 +6,9 @@
 #:
 #:    If `--strict` is passed, additional checks are run, including RuboCop
 #:    style checks.
+#:
+#:    If `--fix` is passed, style violations will be
+#:    automatically fixed using RuboCop's `--auto-correct` feature.
 #:
 #:    If `--online` is passed, additional slower checks that require a network
 #:    connection are run.
@@ -36,6 +39,7 @@ require "cmd/search"
 require "cmd/style"
 require "date"
 require "blacklist"
+require "digest"
 
 module Homebrew
   module_function
@@ -62,8 +66,9 @@ module Homebrew
     end
 
     if strict
+      options = { fix: ARGV.flag?("--fix"), realpath: true }
       # Check style in a single batch run up front for performance
-      style_results = check_style_json(files, realpath: true)
+      style_results = check_style_json(files, options)
     end
 
     ff.each do |f|
@@ -187,7 +192,7 @@ class FormulaAuditor
       args = curl_args(
         extra_args: extra_args,
         show_output: true,
-        user_agent: user_agent
+        user_agent: user_agent,
       )
       status_code = Open3.popen3(*args) { |_, stdout, _, _| stdout.read }
       break if status_code.start_with? "20"
@@ -580,8 +585,14 @@ class FormulaAuditor
     # People will run into mixed content sometimes, but we should enforce and then add
     # exemptions as they are discovered. Treat mixed content on homepages as a bug.
     # Justify each exemptions with a code comment so we can keep track here.
-    if homepage =~ %r{^http://[^/]*github\.io/}
+    case homepage
+    when %r{^http://[^/]*\.github\.io/},
+         %r{^http://[^/]*\.sourceforge\.io/}
       problem "Please use https:// for #{homepage}"
+    end
+
+    if homepage =~ %r{^http://([^/]*)\.(sf|sourceforge)\.net(/|$)}
+      problem "#{homepage} should be `https://#{$1}.sourceforge.io/`"
     end
 
     # There's an auto-redirect here, but this mistake is incredibly common too.
@@ -660,11 +671,11 @@ class FormulaAuditor
     %w[Stable Devel HEAD].each do |name|
       next unless spec = formula.send(name.downcase)
 
-      ra = ResourceAuditor.new(spec).audit
+      ra = ResourceAuditor.new(spec, online: @online).audit
       problems.concat ra.problems.map { |problem| "#{name}: #{problem}" }
 
       spec.resources.each_value do |resource|
-        ra = ResourceAuditor.new(resource).audit
+        ra = ResourceAuditor.new(resource, online: @online).audit
         problems.concat ra.problems.map { |problem|
           "#{name} resource #{resource.name.inspect}: #{problem}"
         }
@@ -1211,7 +1222,7 @@ class ResourceAuditor
   attr_reader :problems
   attr_reader :version, :checksum, :using, :specs, :url, :mirrors, :name
 
-  def initialize(resource)
+  def initialize(resource, options = {})
     @name     = resource.name
     @version  = resource.version
     @checksum = resource.checksum
@@ -1219,6 +1230,7 @@ class ResourceAuditor
     @mirrors  = resource.mirrors
     @using    = resource.using
     @specs    = resource.specs
+    @online   = options[:online]
     @problems = []
   end
 
@@ -1475,9 +1487,41 @@ class ResourceAuditor
       next unless u =~ %r{https?://(?:central|repo\d+)\.maven\.org/maven2/(.+)$}
       problem "#{u} should be `https://search.maven.org/remotecontent?filepath=#{$1}`"
     end
+
+    return unless @online
+    urls.each do |url|
+      check_insecure_mirror(url) if url.start_with? "http:"
+    end
+  end
+
+  def check_insecure_mirror(url)
+    details =  get_content_details(url)
+    secure_url = url.sub "http", "https"
+    secure_details = get_content_details(secure_url)
+
+    return if !details[:status].start_with?("2") || !secure_details[:status].start_with?("2")
+
+    etag_match = details[:etag] && details[:etag] == secure_details[:etag]
+    content_length_match = details[:content_length] && details[:content_length] == secure_details[:content_length]
+    file_match = details[:file_hash] == secure_details[:file_hash]
+
+    return if !etag_match && !content_length_match && !file_match
+    problem "The URL #{url} could use HTTPS rather than HTTP"
   end
 
   def problem(text)
     @problems << text
+  end
+
+  def get_content_details(url)
+    out = {}
+    output, = curl_output "--connect-timeout", "15", "--include", url
+    split = output.partition("\r\n\r\n")
+    headers = split.first
+    out[:status] = headers[%r{HTTP\/.* (\d+)}, 1]
+    out[:etag] = headers[%r{ETag: ([wW]\/)?"(([^"]|\\")*)"}, 2]
+    out[:content_length] = headers[/Content-Length: (\d+)/, 1]
+    out[:file_hash] = Digest::SHA256.digest split.last
+    out
   end
 end
