@@ -519,14 +519,6 @@ class FormulaAuditor
   end
 
   def audit_conflicts
-    if formula.conflicts.any? && formula.versioned_formula?
-      problem <<-EOS
-        Versioned formulae should not use `conflicts_with`.
-        Use `keg_only :versioned_formula` instead.
-      EOS
-      return
-    end
-
     formula.conflicts.each do |c|
       begin
         Formulary.factory(c.name)
@@ -539,6 +531,13 @@ class FormulaAuditor
         problem "Ambiguous conflicting formula #{c.name.inspect}."
       end
     end
+
+    return unless formula.conflicts.any? && formula.versioned_formula?
+    return if formula.name.start_with? "node@"
+    problem <<-EOS
+      Versioned formulae should not use `conflicts_with`.
+      Use `keg_only :versioned_formula` instead.
+    EOS
   end
 
   def audit_options
@@ -680,8 +679,6 @@ class FormulaAuditor
 
     return unless @online
 
-    # The system Curl is too old and unreliable with HTTPS homepages on
-    # Yosemite and below.
     return unless DevelopmentTools.curl_handles_most_https_homepages?
     if http_content_problem = FormulaAuditor.check_http_content(homepage,
                                              user_agents: [:browser, :default])
@@ -754,6 +751,9 @@ class FormulaAuditor
       version = spec.version
       if version.to_s !~ /\d/
         problem "#{name}: version (#{version}) is set to a string without a digit"
+      end
+      if version.to_s.start_with?("HEAD")
+        problem "#{name}: non-HEAD version name (#{version}) should not begin with HEAD"
       end
     end
 
@@ -1571,6 +1571,7 @@ class ResourceAuditor
           problem "The URL #{url} is not a valid git URL"
         end
       elsif strategy <= SubversionDownloadStrategy
+        next unless DevelopmentTools.subversion_handles_most_https_certificates?
         unless Utils.svn_remote_exists url
           problem "The URL #{url} is not a valid svn URL"
         end
