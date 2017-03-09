@@ -21,7 +21,6 @@ require "hbc/fetcher"
 require "hbc/installer"
 require "hbc/locations"
 require "hbc/macos"
-require "hbc/options"
 require "hbc/pkg"
 require "hbc/qualified_token"
 require "hbc/scopes"
@@ -40,14 +39,10 @@ require "utils"
 module Hbc
   include Locations
   include Scopes
-  include Options
   include Utils
 
   def self.init
     Cache.ensure_cache_exists
-    Cache.delete_legacy_cache
-
-    Caskroom.migrate_caskroom_from_repo_to_prefix
     Caskroom.ensure_caskroom_exists
   end
 

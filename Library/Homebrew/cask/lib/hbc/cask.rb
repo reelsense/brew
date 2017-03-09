@@ -71,7 +71,7 @@ module Hbc
       Pathname.glob(metadata_master_container_path.join("*", "*"))
               .map { |p| p.relative_path_from(metadata_master_container_path) }
               .sort_by(&:basename) # sort by timestamp
-              .map(&:split)
+              .map { |p| p.split.map(&:to_s) }
     end
 
     def versions
@@ -90,8 +90,7 @@ module Hbc
     end
 
     def dumpcask
-      return unless Hbc.respond_to?(:debug)
-      return unless Hbc.debug
+      return unless CLI.debug?
 
       odebug "Cask instance dumps in YAML:"
       odebug "Cask instance toplevel:", to_yaml

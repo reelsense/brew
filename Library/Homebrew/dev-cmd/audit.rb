@@ -532,8 +532,10 @@ class FormulaAuditor
       end
     end
 
+    versioned_conflicts_whitelist = %w[node@ bash-completion@].freeze
+
     return unless formula.conflicts.any? && formula.versioned_formula?
-    return if formula.name.start_with? "node@"
+    return if formula.name.start_with?(*versioned_conflicts_whitelist)
     problem <<-EOS
       Versioned formulae should not use `conflicts_with`.
       Use `keg_only :versioned_formula` instead.
@@ -1563,6 +1565,9 @@ class ResourceAuditor
 
       strategy = DownloadStrategyDetector.detect(url, using)
       if strategy <= CurlDownloadStrategy && !url.start_with?("file")
+        # A `brew mirror`'ed URL is usually not yet reachable at the time of
+        # pull request.
+        next if url =~ %r{^https://dl.bintray.com/homebrew/mirror/}
         if http_content_problem = FormulaAuditor.check_http_content(url)
           problem http_content_problem
         end
