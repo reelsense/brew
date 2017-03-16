@@ -7,10 +7,10 @@ module Hbc
     extend Forwardable
 
     attr_reader :token, :sourcefile_path
-    def initialize(token, sourcefile_path: nil, dsl: nil, &block)
+    def initialize(token, sourcefile_path: nil, &block)
       @token = token
       @sourcefile_path = sourcefile_path
-      @dsl = dsl || DSL.new(@token)
+      @dsl = DSL.new(@token)
       return unless block_given?
       @dsl.instance_eval(&block)
       @dsl.language_eval
@@ -87,6 +87,30 @@ module Hbc
     def installed_caskfile
       installed_version = timestamped_versions.last
       metadata_master_container_path.join(*installed_version, "Casks", "#{token}.rb")
+    end
+
+    def outdated?(greedy = false)
+      !outdated_versions(greedy).empty?
+    end
+
+    def outdated_versions(greedy = false)
+      # special case: tap version is not available
+      return [] if version.nil?
+
+      if greedy
+        return versions if version.latest?
+      elsif auto_updates
+        return []
+      end
+
+      installed = versions
+      current   = installed.last
+
+      # not outdated unless there is a different version on tap
+      return [] if current == version
+
+      # collect all installed versions that are different than tap version and return them
+      installed.select { |v| v != version }
     end
 
     def to_s
