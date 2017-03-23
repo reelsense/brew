@@ -361,7 +361,10 @@ class Reporter
 
       case status
       when "A", "D"
-        @report[status.to_sym] << tap.formula_file_to_name(src)
+        full_name = tap.formula_file_to_name(src)
+        name = full_name.split("/").last
+        new_tap = tap.tap_migrations[name]
+        @report[status.to_sym] << full_name unless new_tap
       when "M"
         begin
           formula = Formulary.factory(tap.path/src)
@@ -499,9 +502,15 @@ class Reporter
   end
 
   def migrate_formula_rename
-    report[:R].each do |old_full_name, new_full_name|
-      old_name = old_full_name.split("/").last
-      next unless (dir = HOMEBREW_CELLAR/old_name).directory? && !dir.subdirs.empty?
+    Formula.installed.map(&:oldname).compact.each do |old_name|
+      old_name_dir = HOMEBREW_CELLAR/old_name
+      next if old_name_dir.symlink?
+      next unless old_name_dir.directory? && !old_name_dir.subdirs.empty?
+
+      new_name = tap.formula_renames[old_name]
+      next unless new_name
+
+      new_full_name = "#{tap}/#{new_name}"
 
       begin
         f = Formulary.factory(new_full_name)
