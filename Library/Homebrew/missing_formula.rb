@@ -31,7 +31,7 @@ module Homebrew
             #{Formatter.url("https://pip.readthedocs.io/en/stable/installing/")}
           EOS
         when "pil" then <<-EOS.undent
-          Instead of PIL, consider `pip install pillow` or `brew install Homebrew/python/pillow`.
+          Instead of PIL, consider `pip install pillow` or `brew install Homebrew/science/pillow`.
           EOS
         when "macruby" then <<-EOS.undent
           MacRuby is not packaged and is on an indefinite development hiatus.
@@ -63,10 +63,6 @@ module Homebrew
             brew install leiningen
           and then follow the tutorial:
             #{Formatter.url("https://github.com/technomancy/leiningen/blob/stable/doc/TUTORIAL.md")}
-          EOS
-        when "osmium" then <<-EOS.undent
-          The creator of Osmium requests that it not be packaged and that people
-          use the GitHub master branch instead.
           EOS
         when "gfortran" then <<-EOS.undent
           GNU Fortran is now provided as part of GCC, and can be installed with:

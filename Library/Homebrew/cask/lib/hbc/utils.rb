@@ -4,8 +4,7 @@ require "stringio"
 
 require "hbc/utils/file"
 
-PREBUG_URL = "https://github.com/caskroom/homebrew-cask/blob/master/doc/reporting_bugs/pre_bug_report.md".freeze
-ISSUES_URL = "https://github.com/caskroom/homebrew-cask#reporting-bugs".freeze
+BUG_REPORTS_URL = "https://github.com/caskroom/homebrew-cask#reporting-bugs".freeze
 
 # monkeypatch Object - not a great idea
 class Object
@@ -39,7 +38,15 @@ module Hbc
   module Utils
     def self.gain_permissions_remove(path, command: SystemCommand)
       if path.respond_to?(:rmtree) && path.exist?
-        gain_permissions(path, ["-R"], command, &:rmtree)
+        gain_permissions(path, ["-R"], command) do |p|
+          if p.parent.writable?
+            p.rmtree
+          else
+            command.run("/bin/rm",
+                        args: command_args + ["-r", "-f", "--", p],
+                        sudo: true)
+          end
+        end
       elsif File.symlink?(path)
         gain_permissions(path, ["-h"], command, &FileUtils.method(:rm_f))
       end
@@ -96,11 +103,7 @@ module Hbc
     def self.error_message_with_suggestions
       <<-EOS.undent
         Follow the instructions here:
-          #{Formatter.url(PREBUG_URL)}
-
-        If this doesn’t fix the problem, please report this bug:
-          #{Formatter.url(ISSUES_URL)}
-
+          #{Formatter.url(BUG_REPORTS_URL)}
       EOS
     end
 
