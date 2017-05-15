@@ -307,25 +307,41 @@ class FormulaAuditor
         unversioned_name = unversioned_formula.basename(".rb")
         problem "#{formula} is versioned but no #{unversioned_name} formula exists"
       end
-    elsif ARGV.build_stable?
-      versioned_formulae = Dir[formula.path.to_s.gsub(/\.rb$/, "@*.rb")]
-      needs_versioned_alias = !versioned_formulae.empty? &&
-                              formula.tap &&
-                              formula.aliases.grep(/.@\d/).empty?
-      if needs_versioned_alias
-        _, last_alias_version = File.basename(versioned_formulae.sort.reverse.first)
-                                    .gsub(/\.rb$/, "")
-                                    .split("@")
-        major, minor, = formula.version.to_s.split(".")
-        alias_name = if last_alias_version.split(".").length == 1
-          "#{formula.name}@#{major}"
+    elsif ARGV.build_stable? &&
+          !(versioned_formulae = Dir[formula.path.to_s.gsub(/\.rb$/, "@*.rb")]).empty?
+      versioned_aliases = formula.aliases.grep(/.@\d/)
+      _, last_alias_version =
+        File.basename(versioned_formulae.sort.reverse.first)
+            .gsub(/\.rb$/, "").split("@")
+      major, minor, = formula.version.to_s.split(".")
+      alias_name_major = "#{formula.name}@#{major}"
+      alias_name_major_minor = "#{alias_name_major}.#{minor}"
+      alias_name = if last_alias_version.split(".").length == 1
+        alias_name_major
+      else
+        alias_name_major_minor
+      end
+      valid_alias_names = [alias_name_major, alias_name_major_minor]
+
+      valid_versioned_aliases = versioned_aliases & valid_alias_names
+      invalid_versioned_aliases = versioned_aliases - valid_alias_names
+
+      if valid_versioned_aliases.empty?
+        if formula.tap
+          problem <<-EOS.undent
+            Formula has other versions so create a versioned alias:
+              cd #{formula.tap.alias_dir}
+              ln -s #{formula.path.to_s.gsub(formula.tap.path, "..")} #{alias_name}
+          EOS
         else
-          "#{formula.name}@#{major}.#{minor}"
+          problem "Formula has other versions so create an alias named #{alias_name}."
         end
+      end
+
+      unless invalid_versioned_aliases.empty?
         problem <<-EOS.undent
-          Formula has other versions so create an alias:
-            cd #{formula.tap.alias_dir}
-            ln -s #{formula.path.to_s.gsub(formula.tap.path, "..")} #{alias_name}
+          Formula has invalid versioned aliases:
+            #{invalid_versioned_aliases.join("\n  ")}
         EOS
       end
     end
@@ -572,76 +588,7 @@ class FormulaAuditor
     homepage = formula.homepage
 
     if homepage.nil? || homepage.empty?
-      problem "Formula should have a homepage."
       return
-    end
-
-    unless homepage =~ %r{^https?://}
-      problem "The homepage should start with http or https (URL is #{homepage})."
-    end
-
-    # Check for http:// GitHub homepage urls, https:// is preferred.
-    # Note: only check homepages that are repo pages, not *.github.com hosts
-    if homepage.start_with? "http://github.com/"
-      problem "Please use https:// for #{homepage}"
-    end
-
-    # Savannah has full SSL/TLS support but no auto-redirect.
-    # Doesn't apply to the download URLs, only the homepage.
-    if homepage.start_with? "http://savannah.nongnu.org/"
-      problem "Please use https:// for #{homepage}"
-    end
-
-    # Freedesktop is complicated to handle - It has SSL/TLS, but only on certain subdomains.
-    # To enable https Freedesktop change the URL from http://project.freedesktop.org/wiki to
-    # https://wiki.freedesktop.org/project_name.
-    # "Software" is redirected to https://wiki.freedesktop.org/www/Software/project_name
-    if homepage =~ %r{^http://((?:www|nice|libopenraw|liboil|telepathy|xorg)\.)?freedesktop\.org/(?:wiki/)?}
-      if homepage =~ /Software/
-        problem "#{homepage} should be styled `https://wiki.freedesktop.org/www/Software/project_name`"
-      else
-        problem "#{homepage} should be styled `https://wiki.freedesktop.org/project_name`"
-      end
-    end
-
-    # Google Code homepages should end in a slash
-    if homepage =~ %r{^https?://code\.google\.com/p/[^/]+[^/]$}
-      problem "#{homepage} should end with a slash"
-    end
-
-    # People will run into mixed content sometimes, but we should enforce and then add
-    # exemptions as they are discovered. Treat mixed content on homepages as a bug.
-    # Justify each exemptions with a code comment so we can keep track here.
-    case homepage
-    when %r{^http://[^/]*\.github\.io/},
-         %r{^http://[^/]*\.sourceforge\.io/}
-      problem "Please use https:// for #{homepage}"
-    end
-
-    if homepage =~ %r{^http://([^/]*)\.(sf|sourceforge)\.net(/|$)}
-      problem "#{homepage} should be `https://#{$1}.sourceforge.io/`"
-    end
-
-    # There's an auto-redirect here, but this mistake is incredibly common too.
-    # Only applies to the homepage and subdomains for now, not the FTP URLs.
-    if homepage =~ %r{^http://((?:build|cloud|developer|download|extensions|git|glade|help|library|live|nagios|news|people|projects|rt|static|wiki|www)\.)?gnome\.org}
-      problem "Please use https:// for #{homepage}"
-    end
-
-    # Compact the above into this list as we're able to remove detailed notations, etc over time.
-    case homepage
-    when %r{^http://[^/]*\.apache\.org},
-         %r{^http://packages\.debian\.org},
-         %r{^http://wiki\.freedesktop\.org/},
-         %r{^http://((?:www)\.)?gnupg\.org/},
-         %r{^http://ietf\.org},
-         %r{^http://[^/.]+\.ietf\.org},
-         %r{^http://[^/.]+\.tools\.ietf\.org},
-         %r{^http://www\.gnu\.org/},
-         %r{^http://code\.google\.com/},
-         %r{^http://bitbucket\.org/},
-         %r{^http://(?:[^/]*\.)?archive\.org}
-      problem "Please use https:// for #{homepage}"
     end
 
     return unless @online
@@ -1036,8 +983,12 @@ class FormulaAuditor
       problem "#{$2} modules should be vendored rather than use deprecated `depends_on \"#{$1}\" => :#{$2}#{$3}`"
     end
 
-    if line =~ /depends_on\s+['"](.+)['"]\s+=>\s+.*(?<!\?[( ])['"](.+)['"]/
-      problem "Dependency #{$1} should not use option #{$2}"
+    if line =~ /depends_on\s+['"](.+)['"]\s+=>\s+(.*)/
+      dep = $1
+      $2.split(" ").map do |o|
+        next unless o =~ /^\[?['"](.*)['"]/
+        problem "Dependency #{dep} should not use option #{$1}"
+      end
     end
 
     # Commented-out depends_on
