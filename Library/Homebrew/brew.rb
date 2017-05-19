@@ -21,10 +21,11 @@ if ARGV == %w[--version] || ARGV == %w[-v]
 end
 
 def require?(path)
+  return false if path.nil?
   require path
 rescue LoadError => e
   # we should raise on syntax errors but not if the file doesn't exist.
-  raise unless e.to_s.include? path
+  raise unless e.message.include?(path)
 end
 
 begin
