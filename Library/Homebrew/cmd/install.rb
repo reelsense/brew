@@ -2,7 +2,7 @@
 #:    Install <formula>.
 #:
 #:    <formula> is usually the name of the formula to install, but it can be specified
-#:    in several different ways. See [SPECIFYING FORMULAE][].
+#:    in several different ways. See [SPECIFYING FORMULAE](#specifying-formulae).
 #:
 #:    If `--debug` (or `-d`) is passed and brewing fails, open an interactive debugging
 #:    session with access to IRB or a shell inside the temporary build directory.
@@ -95,9 +95,8 @@ module Homebrew
         args << "--verbose" if ARGV.verbose?
 
         ARGV.casks.each do |c|
-          cmd = "brew", "cask", "install", c, *args
-          ohai cmd.join " "
-          system(*cmd)
+          ohai "brew cask install #{c} #{args.join " "}"
+          system("#{HOMEBREW_PREFIX}/bin/brew", "cask", "install", c, *args)
         end
       end
 
