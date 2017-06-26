@@ -817,16 +817,6 @@ class FormulaAuditor
     end
   end
 
-  def audit_legacy_patches
-    return unless formula.respond_to?(:patches)
-    legacy_patches = Patch.normalize_legacy_patches(formula.patches).grep(LegacyPatch)
-
-    return if legacy_patches.empty?
-
-    problem "Use the patch DSL instead of defining a 'patches' method"
-    legacy_patches.each { |p| patch_problems(p) }
-  end
-
   def patch_problems(patch)
     case patch.url
     when /raw\.github\.com/, %r{gist\.github\.com/raw}, %r{gist\.github\.com/.+/raw},
@@ -1319,6 +1309,12 @@ class ResourceAuditor
     # Check GNU urls; doesn't apply to mirrors
     if url =~ %r{^(?:https?|ftp)://ftpmirror.gnu.org/(.*)}
       problem "Please use \"https://ftp.gnu.org/gnu/#{Regexp.last_match(1)}\" instead of #{url}."
+    end
+
+    # Fossies upstream requests they aren't used as primary URLs
+    # https://github.com/Homebrew/homebrew-core/issues/14486#issuecomment-307753234
+    if url =~ %r{^https?://fossies\.org/}
+      problem "Please don't use fossies.org in the url (using as a mirror is fine)"
     end
 
     if mirrors.include?(url)
