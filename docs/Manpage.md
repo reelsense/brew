@@ -198,7 +198,7 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
     See the docs for examples of using the JSON output:
     <http://docs.brew.sh/Querying-Brew.html>
 
-  * `install` [`--debug`] [`--env=`(`std`|`super`)] [`--ignore-dependencies`|`--only-dependencies`] [`--cc=``compiler`] [`--build-from-source`|`--force-bottle`] [`--devel`|`--HEAD`] [`--keep-tmp`] [`--build-bottle`] `formula`:
+  * `install` [`--debug`] [`--env=`(`std`|`super`)] [`--ignore-dependencies`|`--only-dependencies`] [`--cc=``compiler`] [`--build-from-source`|`--force-bottle`] [`--devel`|`--HEAD`] [`--keep-tmp`] [`--build-bottle`] `formula` [`options` ...]:
     Install `formula`.
 
     `formula` is usually the name of the formula to install, but it can be specified
@@ -246,6 +246,9 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
 
     If `--build-bottle` is passed, prepare the formula for eventual bottling
     during installation.
+
+    Installation options specific to `formula` may be appended to the command,
+    and can be listed with `brew options` `formula`.
 
   * `install` `--interactive` [`--git`] `formula`:
     If `--interactive` (or `-i`) is passed, download and patch `formula`, then
@@ -1069,7 +1072,9 @@ Homebrew Documentation: <https://github.com/Homebrew/brew/blob/master/docs/>
 
 Homebrew's lead maintainer is Mike McQuaid.
 
-Homebrew's current maintainers are Alyssa Ross, Andrew Janke, Alex Dunn, FX Coudert, ilovezfs, Josh Hagins, JCount, Misty De Meo, neutric, Tomasz Pajor, Markus Reiter, Tim Smith, Tom Schoonjans, Uladzislau Shablinski and William Woodruff.
+Homebrew/homebrew-core's lead maintainer is ilovezfs.
+
+Homebrew's other current maintainers are Alyssa Ross, Andrew Janke, Alex Dunn, FX Coudert, Josh Hagins, JCount, Misty De Meo, neutric, Tomasz Pajor, Markus Reiter, Tim Smith, Tom Schoonjans, Uladzislau Shablinski and William Woodruff.
 
 Former maintainers with significant contributions include Baptiste Fontaine, Xu Cheng, Martin Afanasjew, Dominyk Tiller, Brett Koonce, Charlie Sharpsteen, Jack Nagel, Adam Vandenberg and Homebrew's creator: Max Howell.
 
