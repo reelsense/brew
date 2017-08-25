@@ -36,7 +36,7 @@ module Homebrew
     elsif ARGV.include? "--fedora"
       exec_browser "https://apps.fedoraproject.org/packages/s/#{ARGV.next}"
     elsif ARGV.include? "--ubuntu"
-      exec_browser "http://packages.ubuntu.com/search?keywords=#{ARGV.next}&searchon=names&suite=all&section=all"
+      exec_browser "https://packages.ubuntu.com/search?keywords=#{ARGV.next}&searchon=names&suite=all&section=all"
     elsif ARGV.include? "--desc"
       query = ARGV.next
       regex = query_regexp(query)
@@ -102,11 +102,13 @@ module Homebrew
     odie "#{query} is not a valid regex"
   end
 
-  def search_taps(query)
+  def search_taps(query, silent: false)
     return [] if ENV["HOMEBREW_NO_GITHUB_API"]
 
     # Use stderr to avoid breaking parsed output
-    $stderr.puts Formatter.headline("Searching taps on GitHub...", color: :blue)
+    unless silent
+      $stderr.puts Formatter.headline("Searching taps on GitHub...", color: :blue)
+    end
 
     valid_dirnames = ["Formula", "HomebrewFormula", "Casks", "."].freeze
     matches = GitHub.search_code(user: ["Homebrew", "caskroom"], filename: query, extension: "rb")
