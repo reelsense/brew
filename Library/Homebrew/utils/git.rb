@@ -27,8 +27,7 @@ end
 
 module Utils
   def self.git_available?
-    return @git if instance_variable_defined?(:@git)
-    @git = quiet_system HOMEBREW_SHIMS_PATH/"scm/git", "--version"
+    @git ||= quiet_system HOMEBREW_SHIMS_PATH/"scm/git", "--version"
   end
 
   def self.git_path
@@ -49,21 +48,20 @@ module Utils
     return if git_available?
 
     # we cannot install brewed git if homebrew/core is unavailable.
-    raise "Git is unavailable" unless CoreTap.instance.installed?
-
-    begin
-      oh1 "Installing git"
-      safe_system HOMEBREW_BREW_FILE, "install", "git"
-    rescue
-      raise "Git is unavailable"
+    if CoreTap.instance.installed?
+      begin
+        oh1 "Installing git"
+        safe_system HOMEBREW_BREW_FILE, "install", "git"
+      rescue
+        raise "Git is unavailable"
+      end
     end
 
-    clear_git_available_cache
     raise "Git is unavailable" unless git_available?
   end
 
   def self.clear_git_available_cache
-    remove_instance_variable(:@git) if instance_variable_defined?(:@git)
+    @git = nil
     @git_path = nil
     @git_version = nil
   end

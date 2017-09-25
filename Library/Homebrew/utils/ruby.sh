@@ -22,7 +22,7 @@ setup-ruby-path() {
 
       if [[ $(readlink "$vendor_ruby_current_version") != "$(<"$vendor_dir/portable-ruby-version")" ]]
       then
-        if ! brew vendor-install ruby --quiet
+        if ! brew vendor-install ruby
         then
           onoe "Failed to upgrade vendor Ruby."
         fi
@@ -37,12 +37,12 @@ setup-ruby-path() {
 
       if [[ -n "$HOMEBREW_RUBY_PATH" ]]
       then
-        ruby_old_version="$("$HOMEBREW_RUBY_PATH" -e "puts Gem::Version.new('$minimum_ruby_version') > Gem::Version.new(RUBY_VERSION)")"
+        ruby_old_version="$("$HOMEBREW_RUBY_PATH" -rrubygems -e "puts Gem::Version.new('$minimum_ruby_version') > Gem::Version.new(RUBY_VERSION)")"
       fi
 
       if [[ "$ruby_old_version" == "true" || -n "$HOMEBREW_FORCE_VENDOR_RUBY" ]]
       then
-        brew vendor-install ruby --quiet
+        brew vendor-install ruby
         if [[ ! -x "$vendor_ruby_path" ]]
         then
           odie "Failed to install vendor Ruby."
