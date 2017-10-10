@@ -71,7 +71,7 @@ module Hbc
       return if previous_cask_contents.empty?
 
       begin
-        previous_cask = CaskLoader.load_from_string(previous_cask_contents)
+        previous_cask = CaskLoader.load(previous_cask_contents)
 
         return unless previous_cask.version == cask.version
         return if previous_cask.sha256 == cask.sha256
@@ -218,7 +218,7 @@ module Hbc
     end
 
     def check_generic_artifacts
-      cask.artifacts[:artifact].each do |artifact|
+      cask.artifacts.select { |a| a.is_a?(Hbc::Artifact::Artifact) }.each do |artifact|
         unless artifact.target.absolute?
           add_error "target must be absolute path for #{artifact.class.english_name} #{artifact.source}"
         end

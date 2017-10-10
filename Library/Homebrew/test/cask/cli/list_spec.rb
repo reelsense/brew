@@ -65,15 +65,16 @@ describe Hbc::CLI::List, :cask do
   end
 
   describe "given a set of installed Casks" do
-    let(:caffeine) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/local-caffeine.rb") }
-    let(:transmission) { Hbc::CaskLoader.load_from_file(TEST_FIXTURE_DIR/"cask/Casks/local-transmission.rb") }
+    let(:caffeine) { Hbc::CaskLoader.load(cask_path("local-caffeine")) }
+    let(:transmission) { Hbc::CaskLoader.load(cask_path("local-transmission")) }
     let(:casks) { [caffeine, transmission] }
 
     it "lists the installed files for those Casks" do
       casks.each(&InstallHelper.method(:install_without_artifacts_with_caskfile))
 
-      Hbc::Artifact::App.for_cask(transmission)
-        .each { |artifact| artifact.install_phase(command: Hbc::NeverSudoSystemCommand, force: false) }
+      transmission.artifacts.select { |a| a.is_a?(Hbc::Artifact::App) }.each do |artifact|
+        artifact.install_phase(command: Hbc::NeverSudoSystemCommand, force: false)
+      end
 
       expect {
         described_class.run("local-transmission", "local-caffeine")
