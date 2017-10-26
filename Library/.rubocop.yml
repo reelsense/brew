@@ -123,6 +123,15 @@ Style/Documentation:
 Style/Encoding:
   Enabled: true
 
+# use spaces for indentation; detect tabs
+Layout/Tab:
+  Enabled: true
+
+# We have no use for using `warn` because we are
+# calling Ruby with warnings disabled ourselves.
+Style/StderrPuts:
+  Enabled: false
+
 # dashes in filenames are typical
 Naming/FileName:
   Regex: !ruby/regexp /^[\w\@\-\+\.]+(\.rb)?$/
