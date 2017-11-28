@@ -9,7 +9,7 @@ require "set"
 if ENV["HOMEBREW_TESTS_COVERAGE"]
   require "simplecov"
 
-  if ENV["CODECOV_TOKEN"] || ENV["HOMEBREW_TRAVIS"]
+  if ENV["CODECOV_TOKEN"] || ENV["TRAVIS"]
     require "codecov"
     SimpleCov.formatter = SimpleCov::Formatter::Codecov
   end
@@ -59,6 +59,10 @@ RSpec.configure do |config|
 
   config.before(:each, :needs_official_cmd_taps) do
     skip "Needs official command Taps." unless ENV["HOMEBREW_TEST_OFFICIAL_CMD_TAPS"]
+  end
+
+  config.before(:each, :needs_linux) do
+    skip "Not on Linux." unless OS.linux?
   end
 
   config.before(:each, :needs_macos) do
