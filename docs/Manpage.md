@@ -144,7 +144,10 @@ With `--verbose` or `-v`, many commands print extra debugging information. Note 
 
   * `doctor`:
     Check your system for potential problems. Doctor exits with a non-zero status
-    if any problems are found.
+    if any potential problems are found. Please note that these warnings are just
+    used to help the Homebrew maintainers with debugging if you file an issue. If
+    everything you use Homebrew for is working fine: please don't worry or file
+    an issue; just ignore this.
 
   * `fetch` [`--force`] [`--retry`] [`-v`] [`--devel`|`--HEAD`] [`--deps`] [`--build-from-source`|`--force-bottle`] `formulae`:
     Download the source packages for the given `formulae`.
@@ -1007,8 +1010,8 @@ can take several different forms:
     system version.
 
   * `HOMEBREW_FORCE_VENDOR_RUBY`:
-    If set, Homebrew will always use its vendored, relocatable Ruby 2.0 version
-    even if the system version of Ruby is >=2.0.
+    If set, Homebrew will always use its vendored, relocatable Ruby version
+    even if the system version of Ruby is new enough.
 
   * `HOMEBREW_GIT`:
     When using Git, Homebrew will use `GIT` if set,
@@ -1093,8 +1096,14 @@ can take several different forms:
     Sets the FTP proxy to be used by `curl`, `git` and `svn` when downloading
     through Homebrew.
 
+  * `no_proxy`:
+    Sets the comma-separated list of hostnames and domain names that should be excluded from proxying
+    by `curl`, `git` and `svn` when downloading through Homebrew.
+
 ## USING HOMEBREW BEHIND A PROXY
-Use the `http_proxy`, `https_proxy` and/or `ftp_proxy` documented above. For example for an unauthenticated HTTP proxy:
+Use the `http_proxy`, `https_proxy`, `no_proxy` and/or `ftp_proxy` documented above.
+
+For example for an unauthenticated HTTP proxy:
 
     export http_proxy=http://`host`:`port`
 
@@ -1114,9 +1123,9 @@ Homebrew's lead maintainer is Mike McQuaid.
 
 Homebrew/homebrew-core's lead maintainer is ilovezfs.
 
-Homebrew's other current maintainers are Alyssa Ross, Andrew Janke, Alex Dunn, FX Coudert, Josh Hagins, JCount, Misty De Meo, neutric, Tomasz Pajor, Markus Reiter, Tim Smith, Tom Schoonjans, Uladzislau Shablinski and William Woodruff.
+Homebrew's other current maintainers are Alyssa Ross, Andrew Janke, Alex Dunn, FX Coudert, Josh Hagins, JCount, Misty De Meo, neutric, Tomasz Pajor, Markus Reiter, Tom Schoonjans, Uladzislau Shablinski and William Woodruff.
 
-Former maintainers with significant contributions include Baptiste Fontaine, Xu Cheng, Martin Afanasjew, Dominyk Tiller, Brett Koonce, Charlie Sharpsteen, Jack Nagel, Adam Vandenberg and Homebrew's creator: Max Howell.
+Former maintainers with significant contributions include Tim Smith, Baptiste Fontaine, Xu Cheng, Martin Afanasjew, Dominyk Tiller, Brett Koonce, Charlie Sharpsteen, Jack Nagel, Adam Vandenberg and Homebrew's creator: Max Howell.
 
 ## BUGS
 
