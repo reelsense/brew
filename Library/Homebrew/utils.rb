@@ -83,9 +83,11 @@ def odeprecated(method, replacement = nil, disable: false, disable_on: nil, call
   backtrace = caller
   tap_message = nil
 
-  # Don't throw deprecations at all for cached or .brew formulae.
+  # Don't throw deprecations at all for cached, .brew or .metadata files.
   return if backtrace.any? do |line|
-    line.include?(HOMEBREW_CACHE) || line.include?("/.brew/")
+    line.include?(HOMEBREW_CACHE) ||
+    line.include?("/.brew/") ||
+    line.include?("/.metadata/")
   end
 
   caller_message = backtrace.detect do |line|
@@ -198,6 +200,7 @@ module Homebrew
   def install_gem_setup_path!(name, version = nil, executable = name)
     # Match where our bundler gems are.
     ENV["GEM_HOME"] = "#{ENV["HOMEBREW_LIBRARY"]}/Homebrew/vendor/bundle/ruby/#{RbConfig::CONFIG["ruby_version"]}"
+    ENV["GEM_PATH"] = ENV["GEM_HOME"]
 
     # Make rubygems notice env changes.
     Gem.clear_paths

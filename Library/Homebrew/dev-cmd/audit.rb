@@ -1,4 +1,4 @@
-#:  * `audit` [`--strict`] [`--fix`] [`--online`] [`--new-formula`] [`--display-cop-names`] [`--display-filename`] [`--only=`<method>|`--except=`<method>] [`--only-cops=`[COP1,COP2..]|`--except-cops=`[COP1,COP2..]] [<formulae>]:
+#:  * `audit` [`--strict`] [`--fix`] [`--online`] [`--new-formula`] [`--display-cop-names`] [`--display-filename`] [`--only=`<method>|`--except=`<method>] [`--only-cops=`<cops>|`--except-cops=`<cops>] [<formulae>]:
 #:    Check <formulae> for Homebrew coding style violations. This should be
 #:    run before submitting a new formula.
 #:
@@ -8,7 +8,7 @@
 #:    style checks.
 #:
 #:    If `--fix` is passed, style violations will be
-#:    automatically fixed using RuboCop's `--auto-correct` feature.
+#:    automatically fixed using RuboCop's auto-correct feature.
 #:
 #:    If `--online` is passed, additional slower checks that require a network
 #:    connection are run.
@@ -23,19 +23,19 @@
 #:    If `--display-filename` is passed, every line of output is prefixed with the
 #:    name of the file or formula being audited, to make the output easy to grep.
 #:
-#:    If `--only` is passed, only the methods named `audit_<method>` will be run.
+#:    Passing `--only=`<method> will run only the methods named `audit_<method>`,
+#:    while `--except=`<method> will skip the methods named `audit_<method>`.
+#:    For either option <method> should be a comma-separated list.
 #:
-#:    If `--except` is passed, the methods named `audit_<method>` will not be run.
-#:
-#:    If `--only-cops` is passed, only the given Rubocop cop(s)' violations would be checked.
-#:
-#:    If `--except-cops` is passed, the given Rubocop cop(s)' checks would be skipped.
+#:    Passing `--only-cops=`<cops> will check for violations of only the listed
+#:    RuboCop <cops>, while `--except-cops=`<cops> will skip checking the listed
+#:    <cops>. For either option <cops> should be a comma-separated list of cop names.
 #:
 #:    `audit` exits with a non-zero status if any errors are found. This is useful,
 #:    for instance, for implementing pre-commit hooks.
 
 # Undocumented options:
-#     -D activates debugging and profiling of the audit methods (not the same as --debug)
+#     `-D` activates debugging and profiling of the audit methods (not the same as `--debug`)
 
 require "formula"
 require "formula_versions"
@@ -189,8 +189,6 @@ class FormulaAuditor
     swig
   ].freeze
 
-  FILEUTILS_METHODS = FileUtils.singleton_methods(false).map { |m| Regexp.escape(m) }.join "|"
-
   def initialize(formula, options = {})
     @formula = formula
     @new_formula = options[:new_formula]
@@ -198,6 +196,8 @@ class FormulaAuditor
     @online = options[:online]
     # Accept precomputed style offense results, for efficiency
     @style_offenses = options[:style_offenses]
+    # Allow the actual official-ness of a formula to be overridden, for testing purposes
+    @official_tap = formula.tap&.official? || options[:official_tap]
     @problems = []
     @text = FormulaText.new(formula.path)
     @specs = %w[stable devel head].map { |s| formula.send(s) }.compact
@@ -304,7 +304,7 @@ class FormulaAuditor
   def audit_formula_name
     return unless @strict
     # skip for non-official taps
-    return unless formula.tap&.official?
+    return unless @official_tap
 
     name = formula.name
 
@@ -718,7 +718,7 @@ class FormulaAuditor
 
     return unless @strict
 
-    if formula.tap&.official? && line.include?("env :std")
+    if @official_tap && line.include?("env :std")
       problem "`env :std` in official tap formulae is deprecated"
     end
 
@@ -747,7 +747,7 @@ class FormulaAuditor
   def audit_reverse_migration
     # Only enforce for new formula being re-added to core and official taps
     return unless @strict
-    return unless formula.tap&.official?
+    return unless @official_tap
     return unless formula.tap.tap_migrations.key?(formula.name)
 
     problem <<~EOS
@@ -766,6 +766,18 @@ class FormulaAuditor
       is set correctly and expected files are installed.
       The prefix configure/make argument may be case-sensitive.
     EOS
+  end
+
+  def audit_url_is_not_binary
+    return unless @official_tap
+
+    urls = @specs.map(&:url)
+
+    urls.each do |url|
+      if url =~ /darwin/i && (url =~ /x86_64/i || url =~ /amd64/i)
+        problem "#{url} looks like a binary package, not a source archive. Official taps are source-only."
+      end
+    end
   end
 
   def quote_dep(dep)
